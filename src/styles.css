@@ -1,0 +1,275 @@
+#rc-ai-panel {
+  position: fixed;
+  top: 88px;
+  right: 16px;
+  width: 360px;
+  max-height: 80vh;
+  z-index: 2147483647;
+  border: 1px solid #d9e3f0;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
+  box-shadow: 0 12px 28px rgba(26, 54, 93, 0.2);
+  color: #10233f;
+  font-size: 13px;
+  overflow: hidden;
+  font-family: 'Segoe UI', 'PingFang SC', sans-serif;
+}
+
+.rc-ai-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  cursor: move;
+  color: #f7fbff;
+  background: linear-gradient(135deg, #2b6cb0 0%, #1f4f8f 100%);
+  user-select: none;
+}
+
+.rc-ai-title {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.rc-ai-header button {
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+}
+
+.rc-ai-body {
+  display: block;
+  padding: 10px;
+  max-height: calc(80vh - 44px);
+  overflow-y: auto;
+}
+
+.rc-ai-status {
+  border-radius: 8px;
+  padding: 8px;
+  margin-bottom: 10px;
+  background: #e8f1ff;
+  border: 1px solid #c8dcff;
+  line-height: 1.4;
+}
+
+.rc-ai-status[data-type='success'] {
+  background: #eaf9f0;
+  border-color: #b8e5c8;
+}
+
+.rc-ai-status[data-type='error'] {
+  background: #ffefef;
+  border-color: #ffc9c9;
+}
+
+.rc-ai-settings {
+  display: grid;
+  gap: 8px;
+}
+
+.rc-ai-settings label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.rc-ai-settings input {
+  border: 1px solid #c8d6ea;
+  border-radius: 8px;
+  padding: 6px 8px;
+  outline: none;
+  background: #fff;
+}
+
+.rc-ai-settings input:focus {
+  border-color: #4a90e2;
+  box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+}
+
+.rc-ai-setting-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.rc-ai-setting-actions button {
+  border: none;
+  border-radius: 8px;
+  padding: 7px 10px;
+  cursor: pointer;
+  color: #fff;
+  background: #2b6cb0;
+}
+
+.rc-ai-setting-actions button:last-child {
+  background: #1b8f5a;
+}
+
+.rc-ai-results {
+  margin-top: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.rc-ai-result-card {
+  border: 1px solid #d3e0f2;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 0;
+  line-height: 1.45;
+  overflow: hidden;
+  box-shadow: 0 8px 20px rgba(22, 45, 81, 0.08);
+}
+
+.rc-ai-result-card.pending {
+  border-style: dashed;
+}
+
+.rc-ai-result-card-media {
+  background: #f3f7fd;
+  border-bottom: 1px solid #e1eaf6;
+}
+
+.rc-ai-preview-image {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+  background: #eef4ff;
+}
+
+.rc-ai-result-card-content {
+  padding: 10px;
+}
+
+.rc-ai-result-card.error {
+  border-color: #f0b0b0;
+  background: #fff6f6;
+}
+
+.rc-ai-result-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.rc-ai-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.rc-ai-badge.question {
+  color: #915f00;
+  background: #ffecbf;
+}
+
+.rc-ai-badge.ppt {
+  color: #0f5a43;
+  background: #c9f3e4;
+}
+
+.rc-ai-badge.error {
+  color: #8a1f1f;
+  background: #ffd9d9;
+}
+
+.rc-ai-confidence {
+  color: #3f5778;
+  font-size: 11px;
+}
+
+.rc-ai-result-card h4 {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+
+.rc-ai-result-card p {
+  margin: 4px 0;
+  font-size: 12px;
+}
+
+.rc-ai-result-card summary {
+  cursor: pointer;
+  color: #355f99;
+}
+
+.rc-ai-source {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #5a6880;
+  word-break: break-all;
+}
+
+.markdown-body {
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: #173055;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3 {
+  margin: 10px 0 6px;
+  line-height: 1.35;
+}
+
+.markdown-body h1 { font-size: 18px; }
+.markdown-body h2 { font-size: 15px; }
+.markdown-body h3 { font-size: 13px; }
+
+.markdown-body p {
+  margin: 6px 0;
+}
+
+.markdown-body ul {
+  margin: 6px 0 6px 18px;
+  padding: 0;
+}
+
+.markdown-body li {
+  margin: 3px 0;
+}
+
+.markdown-body code,
+.markdown-body pre {
+  font-family: Consolas, 'SFMono-Regular', monospace;
+}
+
+.markdown-body code {
+  background: #eef4ff;
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+.markdown-body pre {
+  background: #eef4ff;
+  padding: 10px;
+  border-radius: 8px;
+  overflow: auto;
+}
+
+.markdown-body blockquote {
+  margin: 8px 0;
+  padding: 6px 10px;
+  border-left: 3px solid #4a90e2;
+  background: #f5f9ff;
+  color: #46607f;
+}
+
+.markdown-body a {
+  color: #1c6fd7;
+  text-decoration: none;
+}
+
+.markdown-body a:hover {
+  text-decoration: underline;
+}

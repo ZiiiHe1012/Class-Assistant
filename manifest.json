@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "RainClassroom AI Assistant",
+  "description": "在雨课堂页面抓取图片并调用 OpenAI 兼容 API，自动分类题目/PPT 并生成讲解。",
+  "version": "0.1.0",
+  "permissions": ["storage", "activeTab", "tabs"],
+  "host_permissions": ["<all_urls>"],
+  "action": {
+    "default_title": "RainClassroom AI Assistant"
+  },
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.yuketang.cn/*",
+        "*://*.rainclassroom.com/*",
+        "*://*.xuetangx.com/*"
+      ],
+      "js": ["src/content.js"],
+      "css": ["src/styles.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
