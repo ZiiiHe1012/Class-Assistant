@@ -1,0 +1,78 @@
+{
+  "name": "class-assistant",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "electron": "node electron/launch.js",
+    "electron:dev": "node electron/launch.js",
+    "build": "electron-builder",
+    "check": "node --check src/server.js"
+  },
+  "dependencies": {
+    "canvas": "^3.2.3",
+    "dotenv": "^16.5.0",
+    "express": "^4.21.2",
+    "marked": "^15.0.12",
+    "multer": "^1.4.5-lts.1",
+    "open": "^10.1.0",
+    "openai": "^4.104.0",
+    "pdf-parse": "^1.1.4",
+    "sharp": "^0.34.2",
+    "tesseract.js": "^7.0.0"
+  },
+  "optionalDependencies": {
+    "playwright": "^1.52.0"
+  },
+  "devDependencies": {
+    "@vercel/ncc": "^0.38.4",
+    "electron": "^33.4.11",
+    "electron-builder": "^26.8.1"
+  },
+  "build": {
+    "appId": "com.smartclassroom.app",
+    "productName": "智慧课堂",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "src/**/*",
+      "public/**/*",
+      "node_modules/**/*",
+      "!node_modules/electron/**",
+      "!node_modules/electron-builder/**",
+      "!node_modules/@vercel/**",
+      "!node_modules/playwright/**",
+      "!node_modules/playwright-core/**",
+      "!node_modules/**/*.md",
+      "!node_modules/**/*.map",
+      "!node_modules/**/test/**",
+      "!node_modules/**/tests/**",
+      "!node_modules/**/docs/**",
+      "package.json",
+      ".env.default"
+    ],
+    "asar": false,
+    "win": {
+      "target": [
+        {
+          "target": "dir",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "public/assets/app-icon.ico",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

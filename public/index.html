@@ -1,0 +1,1645 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>智慧课堂</title>
+    <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --bg: #f8f6f3;
+        --bg-warm: #f3f0ec;
+        --bg-cool: #efecea;
+        --surface: #fffffe;
+        --surface-hover: #faf9f7;
+        --surface-active: #f5f3f0;
+        --glass: rgba(255,255,254,0.72);
+        --glass-border: rgba(0,0,0,0.06);
+        --border: #e9e5e0;
+        --border-light: #f0ede8;
+        --text-1: #1c1917;
+        --text-2: #57534e;
+        --text-3: #a8a29e;
+        --text-4: #d6d3d1;
+        --accent: #10b981;
+        --accent-soft: rgba(16,185,129,0.08);
+        --accent-medium: rgba(16,185,129,0.15);
+        --accent-hover: #059669;
+        --blue: #3b82f6;
+        --blue-soft: rgba(59,130,246,0.08);
+        --purple: #8b5cf6;
+        --purple-soft: rgba(139,92,246,0.08);
+        --amber: #f59e0b;
+        --amber-soft: rgba(245,158,11,0.08);
+        --red: #ef4444;
+        --red-soft: rgba(239,68,68,0.08);
+        --teal: #14b8a6;
+        --r: 14px;
+        --r-sm: 10px;
+        --r-xs: 6px;
+        --r-full: 999px;
+        --shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
+        --shadow-sm: 0 2px 6px rgba(0,0,0,0.04);
+        --shadow-md: 0 4px 16px rgba(0,0,0,0.06);
+        --shadow-lg: 0 12px 40px rgba(0,0,0,0.08);
+        --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+        --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        --ease: cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        font-family: var(--sans);
+        background: var(--bg);
+        color: var(--text-1);
+        height: 100vh;
+        overflow: hidden;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      ::-webkit-scrollbar { width: 4px; height: 4px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+      ::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+
+      .app { display: flex; flex-direction: column; height: 100vh; }
+
+      /* ═══ Topbar ═══ */
+      .topbar {
+        display: flex;
+        align-items: center;
+        height: 48px;
+        padding: 0 12px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+        z-index: 10;
+        gap: 8px;
+      }
+
+      .topbar-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+      .brand-name { font-size: 14px; font-weight: 700; color: var(--text-1); letter-spacing: -0.02em; }
+
+      .topbar-center { display: flex; align-items: center; gap: 6px; white-space: nowrap; min-width: 0; }
+
+      .nav-status { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-3); }
+      .nav-sep { width: 1px; height: 18px; background: var(--border); margin: 0 2px; }
+      .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+      .status-dot.pulse { animation: pulse 2s infinite; }
+      @keyframes pulse { 0%,100% { opacity:1; box-shadow:0 0 0 0 rgba(16,185,129,0.3); } 50% { opacity:0.7; box-shadow:0 0 0 4px rgba(16,185,129,0); } }
+
+      .topbar-actions { display: flex; align-items: center; gap: 3px; flex-shrink: 0; white-space: nowrap; }
+
+      /* Online control bar */
+      .online-bar {
+        display: none;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 16px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border-light);
+        font-size: 12px;
+      }
+      .online-bar.visible { display: flex; }
+      .online-bar-url {
+        flex: 1;
+        min-width: 0;
+        padding: 5px 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--r-sm);
+        background: var(--bg-warm);
+        color: var(--text-1);
+        font-size: 12px;
+        font-family: var(--mono);
+        outline: none;
+        transition: border-color 0.15s;
+      }
+      .online-bar-url:focus { border-color: var(--accent); }
+      .online-bar-url::placeholder { color: var(--text-3); }
+      .online-bar-btn {
+        padding: 5px 12px;
+        font-size: 11px;
+        font-weight: 600;
+        border: 1px solid var(--border);
+        border-radius: var(--r-sm);
+        background: var(--surface);
+        color: var(--text-2);
+        cursor: pointer;
+        transition: all 0.15s;
+        white-space: nowrap;
+        font-family: var(--sans);
+      }
+      .online-bar-btn:hover { background: var(--bg-warm); color: var(--text-1); }
+      .online-bar-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+      .online-bar-btn.primary:hover { filter: brightness(1.1); }
+      .online-bar-btn.danger { color: var(--red); border-color: var(--red); }
+      .online-bar-btn.danger:hover { background: var(--red); color: #fff; }
+      .online-bar-sep { width: 1px; height: 20px; background: var(--border-light); flex-shrink: 0; }
+      .online-bar-btn.yk-toggle.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+      /* Pill toggle (fast/deep) */
+      .pill-toggle {
+        display: flex;
+        background: var(--bg-warm);
+        border-radius: var(--r-full);
+        padding: 3px;
+      }
+      .pill-btn {
+        padding: 5px 14px;
+        font-size: 12px; font-weight: 600;
+        color: var(--text-3);
+        background: none; border: none;
+        border-radius: var(--r-full);
+        cursor: pointer;
+        transition: all 0.2s var(--ease);
+        font-family: var(--sans);
+      }
+      .pill-btn.active {
+        background: var(--surface);
+        color: var(--accent);
+        box-shadow: var(--shadow-xs);
+      }
+      .pill-btn:hover:not(.active) { color: var(--text-2); }
+
+      /* Icon buttons */
+      .icon-btn {
+        width: 32px; height: 32px;
+        display: flex; align-items: center; justify-content: center;
+        background: none; border: none;
+        color: var(--text-3);
+        border-radius: var(--r-sm);
+        cursor: pointer;
+        transition: all 0.15s;
+        position: relative;
+      }
+      .icon-btn:hover { background: var(--bg-warm); color: var(--text-2); }
+      .icon-btn img { width: 18px; height: 18px; opacity: 0.6; transition: opacity 0.15s; }
+      .icon-btn:hover img { opacity: 0.9; }
+      .icon-btn svg { width: 16px; height: 16px; }
+
+      /* Model selector */
+      .model-btn {
+        display: flex; align-items: center; gap: 4px;
+        padding: 5px 12px;
+        font-size: 11px; font-weight: 600;
+        color: var(--text-1);
+        background: var(--bg-warm);
+        border: none;
+        border-radius: var(--r-full);
+        cursor: pointer;
+        font-family: var(--mono);
+        transition: all 0.15s;
+        white-space: nowrap;
+      }
+      .model-btn:hover { background: var(--surface-active); color: var(--accent); }
+      .model-btn svg { width: 8px; height: 8px; opacity: 0.6; }
+
+      .api-key-tag {
+        display: none;
+      }
+      .api-key-tag:hover { color: var(--accent); background: var(--accent-soft); border-color: var(--accent); }
+      .api-key-tag svg { width: 9px; height: 9px; opacity: 0.5; flex-shrink: 0; }
+      .model-group { display: flex; align-items: center; gap: 4px; }
+
+      .api-popover {
+        position: fixed; z-index: 200;
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--r-sm); padding: 12px 14px;
+        box-shadow: var(--shadow-md);
+        min-width: 260px; font-size: 11px;
+        display: none;
+      }
+      .api-popover.show { display: block; }
+      .api-popover-row {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 5px 0; border-bottom: 1px solid var(--border-light);
+      }
+      .api-popover-row:last-child { border-bottom: none; }
+      .api-popover-label { color: var(--text-3); font-weight: 500; }
+      .api-popover-val { font-family: var(--mono); color: var(--text-2); font-size: 10px; }
+      .api-popover-edit {
+        font-size: 10px; color: var(--accent); cursor: pointer;
+        background: none; border: none; font-weight: 600; padding: 2px 6px;
+      }
+      .api-popover-edit:hover { text-decoration: underline; }
+
+      /* Toggle switch */
+      .sw-group {
+        display: flex; align-items: center; gap: 5px;
+        cursor: pointer; padding: 3px 6px;
+        border-radius: var(--r-sm);
+        user-select: none;
+        white-space: nowrap;
+      }
+      .sw-group:hover { background: var(--bg-warm); }
+      .sw-label { font-size: 11px; color: var(--text-3); font-weight: 500; white-space: nowrap; }
+      .sw-track {
+        width: 28px; height: 16px;
+        background: var(--border);
+        border-radius: var(--r-full);
+        position: relative;
+        transition: background 0.2s;
+      }
+      .sw-thumb {
+        width: 12px; height: 12px;
+        background: #fff;
+        border-radius: 50%;
+        position: absolute;
+        top: 2px; left: 2px;
+        transition: left 0.2s var(--ease);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+      }
+      .sw-group.on .sw-track { background: var(--accent); }
+      .sw-group.on .sw-thumb { left: 14px; }
+
+      /* Text btn */
+      .text-btn {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 6px 14px;
+        font-size: 12px; font-weight: 600;
+        color: var(--text-2);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--r-sm);
+        cursor: pointer;
+        transition: all 0.12s;
+        font-family: var(--sans);
+      }
+      .text-btn:hover { background: var(--surface-hover); border-color: var(--accent); color: var(--accent); }
+      .text-btn img { width: 14px; height: 14px; }
+
+      /* ═══ Workspace ═══ */
+      .workspace { display: flex; flex: 1; overflow: hidden; background: var(--bg-cool); }
+      .workspace.layout-swapped { flex-direction: row-reverse; }
+
+      .slide-stage {
+        flex: 1.6; display: flex; flex-direction: column;
+        background: var(--bg-warm); min-width: 0; overflow: hidden;
+      }
+
+      .slide-display {
+        flex: 1;
+        display: flex; align-items: center; justify-content: center;
+        padding: 24px;
+        position: relative; overflow: hidden;
+      }
+
+      .slide-display img {
+        max-width: 100%; max-height: 100%;
+        object-fit: contain;
+        border-radius: var(--r-sm);
+        box-shadow: var(--shadow-md);
+        transition: transform 0.3s var(--ease);
+      }
+
+      .slide-placeholder {
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        gap: 12px; color: var(--text-3);
+      }
+      .slide-placeholder img { box-shadow: none !important; border-radius: var(--r); opacity: 0.4; }
+      .slide-placeholder span { font-size: 12px; color: var(--text-3); font-weight: 500; }
+
+      .slide-img-wrap {
+        position: relative;
+        display: flex; align-items: center; justify-content: center;
+        max-width: 100%; max-height: 100%;
+      }
+      .slide-img-wrap img {
+        max-width: 100%; max-height: 100%;
+        object-fit: contain;
+        border-radius: var(--r-sm);
+        box-shadow: var(--shadow-md);
+      }
+      .slide-ocr-layer {
+        position: absolute; left: 0; top: 0;
+        color: transparent;
+        overflow: hidden;
+        user-select: text;
+        cursor: text;
+        z-index: 2;
+      }
+      .slide-ocr-layer span {
+        color: transparent;
+        white-space: pre;
+        position: absolute;
+      }
+      .slide-ocr-layer span::selection { background: rgba(59,130,246,0.3); }
+      .slide-ocr-layer::selection { background: rgba(59,130,246,0.3); }
+
+      /* Upload zone */
+      .upload-zone {
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        width: 320px; padding: 48px 32px;
+        border: 2px dashed var(--border);
+        border-radius: var(--r);
+        cursor: pointer;
+        transition: all 0.2s var(--ease);
+        background: var(--surface);
+      }
+      .upload-zone:hover, .upload-zone.drag-over {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+        transform: scale(1.01);
+      }
+
+      /* Slide nav bar */
+      .slide-nav {
+        display: flex; gap: 6px;
+        padding: 10px 16px;
+        overflow-x: auto;
+        background: var(--surface);
+        border-top: 1px solid var(--border-light);
+        flex-shrink: 0; min-height: 58px;
+        align-items: center;
+        position: relative;
+      }
+      .slide-nav.collapsed { display: none; }
+      .slide-nav-toggle {
+        position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+        z-index: 5; background: var(--surface); border: 1px solid var(--border-light);
+        border-bottom: none; border-radius: 6px 6px 0 0;
+        padding: 1px 12px; font-size: 10px; color: var(--text-3);
+        cursor: pointer; line-height: 1.4;
+      }
+      .slide-nav-toggle:hover { color: var(--text-1); background: var(--bg-warm); }
+
+      .thumb {
+        flex-shrink: 0;
+        width: 72px; height: 44px;
+        border-radius: var(--r-xs);
+        overflow: hidden; cursor: pointer;
+        border: 2px solid transparent;
+        opacity: 0.4;
+        transition: all 0.15s var(--ease);
+        position: relative;
+      }
+      .thumb-ctx-menu {
+        position: fixed; z-index: 999;
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--r-sm); box-shadow: var(--shadow-lg);
+        padding: 4px 0; min-width: 100px;
+      }
+      .thumb-ctx-menu button {
+        display: block; width: 100%; text-align: left;
+        padding: 6px 14px; font-size: 11px; color: var(--text-1);
+        background: none; border: none; cursor: pointer; font-family: var(--sans);
+      }
+      .thumb-ctx-menu button:hover { background: var(--bg-warm); }
+      .thumb-ctx-menu button.danger { color: var(--red); }
+      .thumb-ctx-menu button.danger:hover { background: var(--red-dim); }
+      .thumb:hover { opacity: 0.7; transform: translateY(-1px); }
+      .thumb.active { border-color: var(--accent); opacity: 1; box-shadow: var(--shadow-sm); }
+      .thumb img { width: 100%; height: 100%; object-fit: cover; }
+      .thumb-index {
+        position: absolute; bottom: 2px; left: 4px;
+        font-size: 9px; font-family: var(--mono);
+        color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.7); font-weight: 600;
+      }
+      .thumb-status {
+        position: absolute; top: 3px; right: 3px;
+        width: 6px; height: 6px; border-radius: 50%;
+      }
+      .thumb-status.analyzing { background: var(--accent); animation: pulse 1s infinite; }
+      .thumb-status.error { background: var(--red); }
+
+      /* ═══ Side panel ═══ */
+      .side-panel {
+        width: 420px; flex-shrink: 0;
+        display: flex; flex-direction: column;
+        background: var(--surface);
+        border-left: 1px solid var(--border-light);
+        overflow: hidden;
+      }
+
+      .panel-section {
+        display: flex; flex-direction: column;
+        overflow: hidden; min-height: 0;
+      }
+      .panel-section.analysis-section { flex: 1; }
+      .panel-section.chat-section { flex: 1; min-height: 200px; }
+
+      .section-header {
+        display: flex; align-items: center; gap: 8px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border-light);
+        flex-shrink: 0;
+        background: var(--surface);
+      }
+      .section-icon { width: 16px; height: 16px; opacity: 0.5; }
+      .section-title { font-size: 13px; font-weight: 700; color: var(--text-1); letter-spacing: -0.01em; }
+      .section-header-actions { display: flex; align-items: center; gap: 2px; margin-left: auto; }
+      .section-action-btn {
+        width: 22px; height: 22px;
+        display: flex; align-items: center; justify-content: center;
+        background: none; border: none;
+        color: var(--text-4); border-radius: var(--r-xs);
+        cursor: pointer; transition: all 0.1s; font-size: 12px;
+      }
+      .section-action-btn:hover { background: var(--bg-warm); color: var(--text-2); }
+
+      .panel-section.minimized { flex: 0 0 auto !important; min-height: 0 !important; }
+      .panel-section.minimized .panel-body,
+      .panel-section.minimized .chat-body-inner { display: none; }
+
+      .resize-handle {
+        height: 8px; cursor: row-resize;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+        background: var(--border-light);
+        transition: background 0.12s;
+      }
+      .resize-handle::after {
+        content: ''; width: 32px; height: 3px;
+        border-radius: 2px; background: var(--border);
+        transition: background 0.12s;
+      }
+      .resize-handle:hover { background: var(--accent-soft); }
+      .resize-handle:hover::after { background: var(--accent); }
+
+      .resize-handle-h {
+        width: 6px; cursor: col-resize;
+        display: flex; align-items: center; justify-content: center;
+        background: var(--border-light); flex-shrink: 0;
+        transition: background 0.15s;
+        position: relative;
+      }
+      .resize-handle-h::before {
+        content: ''; position: absolute; inset: 0;
+        width: 16px; left: -5px;
+        cursor: col-resize;
+      }
+      .resize-handle-h::after {
+        content: ''; position: absolute; top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        width: 3px; height: 32px;
+        border-radius: 2px; background: var(--border);
+        transition: background 0.12s;
+      }
+      .resize-handle-h:hover { background: var(--accent-soft); }
+      .resize-handle-h:hover::after { background: var(--accent); }
+
+      .panel-body { flex: 1; overflow-y: auto; padding: 16px; }
+
+      .panel-welcome {
+        display: flex; align-items: center; justify-content: center;
+        height: 100px; color: var(--text-3); font-size: 12px; font-weight: 500;
+      }
+
+      /* ═══ Analysis content ═══ */
+      .a-header {
+        display: flex; align-items: center;
+        justify-content: space-between; margin-bottom: 14px;
+      }
+      .a-header h3 { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; }
+      .a-actions { display: flex; gap: 4px; }
+
+      .a-btn {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 5px 10px; font-size: 10px; font-weight: 600;
+        color: var(--text-3); background: var(--bg-warm);
+        border: none; border-radius: var(--r-full);
+        cursor: pointer; transition: all 0.12s;
+        font-family: var(--sans);
+      }
+      .a-btn:hover { background: var(--accent-soft); color: var(--accent); }
+      .a-btn.loading { color: var(--accent); }
+      .a-btn img { width: 12px; height: 12px; }
+
+      .tag {
+        display: inline-flex; padding: 3px 8px;
+        border-radius: var(--r-full);
+        font-size: 10px; font-weight: 700;
+        font-family: var(--mono); letter-spacing: 0.02em;
+      }
+      .tag.blue { background: var(--blue-soft); color: var(--blue); }
+      .tag.green { background: var(--accent-soft); color: var(--accent); }
+      .tag.amber { background: var(--amber-soft); color: var(--amber); }
+      .tag.red { background: var(--red-soft); color: var(--red); }
+
+      .card {
+        background: var(--bg-warm);
+        border-radius: var(--r-sm);
+        padding: 14px; margin-bottom: 10px;
+      }
+      .card h4 {
+        font-size: 10px; font-weight: 700;
+        color: var(--accent); margin-bottom: 8px;
+        text-transform: uppercase; letter-spacing: 0.06em;
+        font-family: var(--mono);
+      }
+
+      /* Prose */
+      .prose { font-size: 13px; line-height: 1.75; color: var(--text-2); }
+      .prose h1,.prose h2,.prose h3 { color: var(--text-1); margin: 0.8em 0 0.3em; font-weight: 700; letter-spacing: -0.01em; }
+      .prose h1 { font-size: 16px; } .prose h2 { font-size: 14px; } .prose h3 { font-size: 13px; }
+      .prose p { margin: 0.4em 0; }
+      .prose ul,.prose ol { padding-left: 18px; margin: 0.4em 0; }
+      .prose li { margin: 0.2em 0; }
+      .prose strong { color: var(--text-1); font-weight: 600; }
+      .prose code { background: var(--accent-soft); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-family: var(--mono); }
+      .prose pre { background: var(--bg-warm); padding: 12px; border-radius: var(--r-sm); overflow-x: auto; margin: 0.6em 0; }
+      .prose pre code { background: transparent; padding: 0; }
+      .prose table { width: 100%; border-collapse: collapse; margin: 0.6em 0; font-size: 12px; }
+      .prose th, .prose td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
+      .prose th { background: var(--bg-warm); font-weight: 700; color: var(--text-1); }
+      .prose blockquote { border-left: 3px solid var(--accent); padding-left: 14px; margin: 0.6em 0; color: var(--text-2); font-style: italic; }
+
+      /* Questions */
+      .q-stem {
+        padding: 12px 14px;
+        background: var(--accent-soft);
+        border-radius: var(--r-sm);
+        border-left: 3px solid var(--accent);
+        font-size: 13px; line-height: 1.7;
+        color: var(--text-1); margin-bottom: 12px;
+      }
+
+      .opt-list { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+      .opt {
+        display: flex; align-items: flex-start; gap: 10px;
+        padding: 10px 12px;
+        border: 1px solid var(--border-light);
+        border-radius: var(--r-sm);
+        cursor: pointer; transition: all 0.12s;
+        font-size: 12px; background: var(--surface);
+        color: var(--text-1); text-align: left;
+        width: 100%; font-family: var(--sans);
+      }
+      .opt:hover { background: var(--surface-hover); border-color: var(--border); }
+      .opt.selected { border-color: var(--accent); background: var(--accent-soft); }
+      .opt.correct { border-color: var(--accent); background: var(--accent-medium); }
+      .opt-key {
+        min-width: 24px; height: 24px;
+        display: inline-flex; align-items: center; justify-content: center;
+        border-radius: var(--r-xs); background: var(--bg-warm);
+        font-weight: 700; font-size: 11px; font-family: var(--mono); flex-shrink: 0;
+      }
+      .opt-text { line-height: 1.6; padding-top: 2px; }
+
+      .blank-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+      .blank-label { font-size: 11px; color: var(--text-3); min-width: 40px; font-weight: 600; font-family: var(--mono); }
+      .blank-input {
+        flex: 1; padding: 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--r-sm);
+        background: var(--surface); color: var(--text-1);
+        font-size: 12px; outline: none; font-family: var(--sans);
+        transition: border-color 0.12s;
+      }
+      .blank-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+      .subj-textarea {
+        width: 100%; min-height: 60px;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--r-sm);
+        background: var(--surface); color: var(--text-1);
+        font-size: 12px; font-family: var(--sans);
+        resize: vertical; outline: none; margin-bottom: 10px;
+      }
+      .subj-textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+      .submit-row { display: flex; align-items: center; gap: 8px; margin: 10px 0; }
+
+      .btn {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 7px 14px; border-radius: var(--r-sm);
+        font-size: 11px; font-weight: 700; cursor: pointer;
+        transition: all 0.12s var(--ease);
+        border: none; font-family: var(--sans);
+      }
+      .btn.primary { background: var(--accent); color: #fff; }
+      .btn.primary:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+      .btn.outline { background: var(--surface); border: 1px solid var(--border); color: var(--text-2); }
+      .btn.outline:hover { background: var(--surface-hover); border-color: var(--accent); color: var(--accent); }
+      .btn.sm { padding: 5px 10px; font-size: 10px; }
+      .btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+
+      .hint { font-size: 10px; color: var(--text-3); }
+
+      .answer-box {
+        padding: 12px 14px;
+        background: var(--accent-soft);
+        border-radius: var(--r-sm);
+        border-left: 3px solid var(--accent);
+        margin: 10px 0;
+      }
+      .answer-box h5 { font-size: 10px; color: var(--accent); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; font-family: var(--mono); }
+      .answer-box p { font-size: 12px; line-height: 1.7; color: var(--text-1); }
+
+      .explain-box {
+        padding: 12px 14px;
+        background: var(--bg-warm);
+        border-radius: var(--r-sm);
+        margin: 10px 0;
+      }
+      .explain-box h5 { font-size: 10px; color: var(--accent); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; font-family: var(--mono); }
+
+      .kp-row { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; }
+      .kp {
+        padding: 3px 8px; border-radius: var(--r-full);
+        font-size: 10px; background: var(--accent-soft);
+        color: var(--accent); font-weight: 600; font-family: var(--mono);
+      }
+
+      .diff-row { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--text-3); margin-bottom: 10px; font-weight: 600; }
+      .diff-dots { display: flex; gap: 3px; }
+      .diff-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); }
+      .diff-dot.on { background: var(--amber); }
+
+      /* Analysis progress */
+      .analysis-progress {
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        gap: 14px; padding: 32px 20px; height: 100%;
+      }
+      .progress-ring {
+        width: 32px; height: 32px;
+        border: 2.5px solid var(--border);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .progress-text { font-size: 13px; color: var(--text-1); font-weight: 600; }
+      .progress-sub { font-size: 11px; color: var(--text-3); }
+      .progress-steps { display: flex; gap: 5px; margin-top: 6px; }
+      .progress-step { width: 28px; height: 3px; border-radius: 2px; background: var(--border); transition: background 0.3s; }
+      .progress-step.done { background: var(--accent); }
+      .progress-step.active { background: var(--accent); animation: pulse 1s infinite; }
+      .deep-think-loading {
+        display: flex; align-items: center; gap: 10px;
+        padding: 14px 16px; margin-top: 12px;
+        background: var(--bg-warm); border-radius: var(--r-sm);
+        border: 1px solid var(--border-light);
+      }
+      .deep-think-loading .progress-ring {
+        width: 20px; height: 20px; border-width: 2px; flex-shrink: 0;
+      }
+      .deep-think-loading .progress-text {
+        font-size: 12px; font-weight: 500;
+      }
+
+      /* ═══ Chat ═══ */
+      .chat-body-inner {
+        flex: 1; display: flex; flex-direction: column;
+        overflow: hidden; padding: 12px 16px 14px;
+      }
+
+      .chat-context { margin-bottom: 8px; flex-shrink: 0; }
+      .ctx-toggle {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 4px 10px; font-size: 10px; font-weight: 600;
+        color: var(--text-3); background: none;
+        border: 1px dashed var(--border);
+        border-radius: var(--r-full);
+        cursor: pointer; font-family: var(--sans);
+        transition: all 0.12s;
+      }
+      .ctx-toggle:hover { color: var(--text-2); background: var(--bg-warm); border-color: var(--text-3); }
+
+      .ctx-area { margin-top: 8px; }
+      #chat-background {
+        width: 100%; padding: 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--r-sm);
+        background: var(--bg-warm); color: var(--text-1);
+        font-size: 11px; font-family: var(--sans);
+        resize: vertical; outline: none; max-height: 200px;
+        overflow-y: auto;
+      }
+      #chat-background:focus { border-color: var(--accent); background: var(--surface); }
+      .ctx-chips {
+        display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px;
+      }
+      .ctx-chip {
+        display: inline-flex; align-items: center; gap: 3px;
+        background: var(--accent-dim); color: var(--accent);
+        border-radius: 10px; padding: 2px 8px; font-size: 10px;
+        max-width: 200px; cursor: default;
+      }
+      .ctx-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .ctx-chip-del {
+        cursor: pointer; font-size: 12px; line-height: 1; opacity: 0.6;
+        margin-left: 2px;
+      }
+      .ctx-chip-del:hover { opacity: 1; color: var(--red); }
+
+      .chat-messages {
+        flex: 1; display: flex; flex-direction: column;
+        gap: 8px; overflow-y: auto; padding-bottom: 6px;
+      }
+
+      .chat-bubble {
+        max-width: 85%; padding: 10px 14px;
+        border-radius: 16px; font-size: 12px; line-height: 1.65;
+      }
+      .chat-bubble.user {
+        align-self: flex-end;
+        background: var(--accent); color: #fff;
+        border-bottom-right-radius: 4px;
+      }
+      .chat-bubble.assistant {
+        align-self: flex-start;
+        background: var(--bg-warm); color: var(--text-1);
+        border-bottom-left-radius: 4px;
+      }
+      .chat-bubble.system {
+        align-self: center;
+        background: none; color: var(--text-3);
+        font-size: 11px; text-align: center; padding-top: 24px;
+      }
+      .chat-bubble.thinking {
+        align-self: flex-start;
+        background: var(--bg-warm); color: var(--text-3);
+        font-style: italic;
+      }
+
+      .chat-composer {
+        display: flex; gap: 8px;
+        padding: 10px 0 0;
+        border-top: 1px solid var(--border-light);
+        margin-top: 8px; align-items: flex-end; flex-shrink: 0;
+      }
+
+      .attach-btn {
+        width: 32px; height: 32px;
+        display: flex; align-items: center; justify-content: center;
+        background: var(--bg-warm); border: none;
+        border-radius: var(--r-sm);
+        color: var(--text-3); cursor: pointer; flex-shrink: 0;
+        transition: all 0.12s;
+      }
+      .attach-btn:hover { background: var(--accent-soft); color: var(--accent); }
+
+      .chat-attach-preview { display: flex; gap: 6px; flex-wrap: wrap; padding: 4px 0; }
+      .attach-chip {
+        position: relative; display: flex; align-items: center; gap: 4px;
+        padding: 4px; background: var(--bg-warm);
+        border-radius: var(--r-xs); font-size: 10px; color: var(--text-2);
+      }
+      .attach-thumb {
+        width: 64px; height: 64px; object-fit: cover;
+        border-radius: 4px; cursor: pointer;
+        transition: opacity 0.15s;
+      }
+      .attach-thumb:hover { opacity: 0.8; }
+      .attach-remove {
+        position: absolute; top: -5px; right: -5px;
+        width: 16px; height: 16px;
+        display: flex; align-items: center; justify-content: center;
+        background: var(--red); color: #fff;
+        border: 2px solid var(--surface);
+        border-radius: 50%; font-size: 10px;
+        cursor: pointer; line-height: 1;
+      }
+      .attach-lightbox {
+        position: fixed; inset: 0; z-index: 500;
+        background: rgba(0,0,0,0.7);
+        display: flex; align-items: center; justify-content: center;
+        cursor: zoom-out;
+      }
+      .attach-lightbox img {
+        max-width: 90vw; max-height: 90vh;
+        border-radius: 8px; box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+      }
+      .chat-attach-img { max-width: 100px; max-height: 50px; border-radius: 4px; margin-top: 4px; }
+      .chat-attach-file { display: inline-block; padding: 2px 6px; background: var(--bg-warm); border-radius: 3px; font-size: 10px; color: var(--text-3); margin-top: 4px; }
+      .chat-attachments { margin-top: 6px; }
+
+      #chat-input {
+        width: 100%; padding: 9px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--r-sm);
+        background: var(--bg-warm); color: var(--text-1);
+        font-size: 12px; font-family: var(--sans);
+        resize: none; outline: none;
+        min-height: 36px; max-height: 160px;
+        overflow-y: auto;
+        transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+      }
+      #chat-input:focus { border-color: var(--accent); background: var(--surface); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+      .send-btn {
+        width: 32px; height: 32px;
+        display: flex; align-items: center; justify-content: center;
+        background: var(--accent); color: #fff;
+        border: none; border-radius: var(--r-sm);
+        cursor: pointer; flex-shrink: 0;
+        transition: all 0.15s var(--ease);
+      }
+      .send-btn:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+
+      /* ═══ Modals ═══ */
+      .modal-overlay {
+        position: fixed; inset: 0; z-index: 100;
+        background: rgba(0,0,0,0.3);
+        display: flex; align-items: center; justify-content: center;
+      }
+      .modal-sheet {
+        width: min(640px, 92vw); max-height: 85vh;
+        background: var(--surface);
+        border-radius: var(--r);
+        box-shadow: var(--shadow-lg);
+        display: flex; flex-direction: column;
+        overflow: hidden; border: 1px solid var(--glass-border);
+      }
+      .settings-sheet { width: min(520px, 92vw); }
+      .modal-head {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--border-light);
+      }
+      .modal-head h2 { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+      .close-btn {
+        width: 28px; height: 28px;
+        display: flex; align-items: center; justify-content: center;
+        background: none; border: none; color: var(--text-3);
+        font-size: 18px; cursor: pointer; border-radius: var(--r-xs);
+      }
+      .close-btn:hover { background: var(--bg-warm); color: var(--text-1); }
+
+      .modal-content { flex: 1; overflow-y: auto; padding: 24px; }
+
+      /* Settings */
+      .field { margin-bottom: 14px; }
+      .field label { display: block; font-size: 11px; font-weight: 700; color: var(--text-1); margin-bottom: 6px; letter-spacing: -0.01em; }
+      .field input, .field select {
+        width: 100%; padding: 9px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--r-sm);
+        background: var(--bg-warm); color: var(--text-1);
+        font-size: 12px; outline: none; font-family: var(--sans);
+        transition: all 0.15s;
+      }
+      .field input:focus, .field select:focus { border-color: var(--accent); background: var(--surface); box-shadow: 0 0 0 3px var(--accent-soft); }
+      .field small { display: block; margin-top: 5px; font-size: 10px; color: var(--text-3); }
+      .field-row { display: flex; gap: 12px; }
+      .field-row .field { flex: 1; }
+
+      .chip-row { display: flex; gap: 6px; }
+      .chip {
+        padding: 6px 14px;
+        border: 1px solid var(--border);
+        border-radius: var(--r-full);
+        background: var(--surface); color: var(--text-2);
+        font-size: 11px; cursor: pointer; font-family: var(--sans); font-weight: 600;
+        transition: all 0.12s;
+      }
+      .chip:hover { background: var(--surface-hover); }
+      .chip.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+
+      .checkbox-group { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 6px; }
+      .checkbox-item {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 12px; font-weight: 400; color: var(--text-2);
+        cursor: pointer; user-select: none;
+      }
+      .checkbox-item input[type="checkbox"] {
+        width: 14px; height: 14px; accent-color: var(--accent);
+        margin: 0; cursor: pointer;
+      }
+
+      .field-actions { display: flex; gap: 10px; margin-top: 24px; }
+
+      .test-msg {
+        margin-top: 12px; padding: 10px 14px;
+        border-radius: var(--r-sm);
+        font-size: 11px; display: none; font-weight: 600;
+      }
+      .test-msg.ok { display: block; background: var(--accent-soft); color: var(--accent); }
+      .test-msg.err { display: block; background: var(--red-soft); color: var(--red); }
+
+      .model-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+      .model-chip {
+        padding: 3px 8px; font-size: 9px; font-weight: 600;
+        color: var(--text-3); background: var(--bg-warm);
+        border: 1px solid var(--border-light);
+        border-radius: var(--r-full); cursor: pointer;
+        font-family: var(--mono); transition: all 0.1s;
+      }
+      .model-chip:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+
+      /* Toast */
+      .toast-notify {
+        position: fixed; bottom: 24px; left: 50%;
+        transform: translateX(-50%);
+        display: flex; align-items: center; gap: 12px;
+        padding: 12px 18px;
+        background: var(--surface);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--r);
+        box-shadow: var(--shadow-lg);
+        z-index: 200; font-size: 13px; color: var(--text-2);
+        animation: toast-in 0.3s var(--ease);
+      }
+      @keyframes toast-in { from { opacity:0; transform:translateX(-50%) translateY(12px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+      .toast-btn {
+        padding: 5px 12px; background: var(--accent);
+        color: #fff; border: none; border-radius: var(--r-xs);
+        font-size: 11px; font-weight: 700; cursor: pointer; font-family: var(--sans);
+      }
+      .toast-btn:hover { background: var(--accent-hover); }
+
+      /* ═══ Dropdown ═══ */
+      .model-dropdown {
+        position: fixed; z-index: 300;
+        background: var(--surface);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--r-sm);
+        box-shadow: var(--shadow-lg);
+        min-width: 220px; max-height: 320px;
+        overflow-y: auto; padding: 6px;
+      }
+      .model-dropdown-header {
+        padding: 8px 12px 6px;
+        font-size: 10px; font-weight: 700;
+        color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em;
+      }
+      .model-dropdown-item {
+        display: block; width: 100%;
+        padding: 8px 12px; font-size: 11px; font-family: var(--mono);
+        color: var(--text-2); background: none; border: none;
+        border-radius: var(--r-xs); cursor: pointer; text-align: left;
+        transition: all 0.1s;
+      }
+      .model-dropdown-item:hover { background: var(--bg-warm); color: var(--text-1); }
+      .model-dropdown-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+      .model-dropdown-empty { padding: 16px; text-align: center; font-size: 11px; color: var(--text-3); }
+      .model-dropdown-source {
+        padding: 6px 14px 2px; font-size: 9px; color: var(--text-3);
+        text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;
+        border-top: 1px solid var(--border-light); margin-top: 2px;
+      }
+      .model-dropdown-source:first-child { border-top: none; margin-top: 0; }
+
+      /* ═══ Attach Menu ═══ */
+      .attach-menu {
+        position: fixed; z-index: 150;
+        background: var(--surface);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--r-sm);
+        box-shadow: var(--shadow-lg);
+        padding: 6px; min-width: 180px;
+      }
+      .attach-menu-item {
+        display: flex; align-items: center; gap: 10px;
+        width: 100%; padding: 9px 14px;
+        font-size: 12px; color: var(--text-2);
+        background: none; border: none;
+        border-radius: var(--r-xs); cursor: pointer;
+        font-family: var(--sans); text-align: left;
+        transition: background 0.1s;
+      }
+      .attach-menu-item:hover { background: var(--bg-warm); color: var(--text-1); }
+
+      /* ═══ Translate ═══ */
+      .translate-popup {
+        position: fixed; z-index: 200;
+        transform: translateX(-50%);
+        display: flex; gap: 2px;
+        background: var(--surface);
+        border: 1px solid var(--glass-border);
+        border-radius: var(--r-full);
+        box-shadow: var(--shadow-md);
+        padding: 4px;
+      }
+      .translate-popup-btn {
+        padding: 5px 12px; font-size: 11px; font-weight: 600;
+        color: var(--text-2); background: none; border: none;
+        border-radius: var(--r-full); cursor: pointer;
+        font-family: var(--sans); transition: all 0.1s;
+      }
+      .translate-popup-btn:hover { background: var(--accent-soft); color: var(--accent); }
+      .translate-result {
+        position: fixed; z-index: 200;
+        min-width: 200px; max-width: 600px; width: 380px;
+        min-height: 80px; max-height: 80vh;
+        background: var(--surface);
+        border: 1px solid var(--glass-border);
+        border-radius: 10px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.08);
+        display: flex; flex-direction: column;
+        overflow: hidden;
+        resize: both;
+      }
+      .translate-result.pinned { box-shadow: 0 8px 32px rgba(16,185,129,0.15), 0 2px 8px rgba(0,0,0,0.08); border-color: var(--accent); }
+      .translate-drag-bar {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 6px 10px; cursor: move;
+        background: var(--bg-warm); border-bottom: 1px solid var(--border-light);
+        flex-shrink: 0; user-select: none;
+      }
+      .translate-drag-bar .drag-hint { font-size: 10px; color: var(--text-3); letter-spacing: 1px; }
+      .translate-bar-actions { display: flex; gap: 4px; }
+      .translate-bar-actions button {
+        background: none; border: none; color: var(--text-3); font-size: 14px;
+        cursor: pointer; padding: 2px 4px; border-radius: 3px; line-height: 1;
+      }
+      .translate-bar-actions button:hover { color: var(--text-1); background: var(--accent-soft); }
+      .translate-bar-actions button.pin-active { color: var(--accent); transform: rotate(45deg); }
+      .translate-body {
+        padding: 12px 14px; overflow-y: auto; flex: 1;
+      }
+      .translate-content { font-size: 12px; line-height: 1.7; color: var(--text-1); white-space: pre-wrap; }
+      .translate-loading { font-size: 11px; color: var(--text-3); display: flex; align-items: center; gap: 8px; padding: 12px 14px; }
+      .translate-loading::before { content:''; width:14px; height:14px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.6s linear infinite; }
+      .translate-error { font-size: 11px; color: var(--red); padding: 12px 14px; }
+
+      /* Dictionary card styles */
+      .dict-card { font-size: 13px; line-height: 1.7; }
+      .dict-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
+      .dict-word { font-size: 17px; font-weight: 700; color: var(--text-1); }
+      .dict-phonetic { font-size: 12px; color: var(--text-3); font-family: var(--mono); }
+      .dict-pos { font-size: 10px; color: var(--accent); background: rgba(16,185,129,0.1); padding: 2px 8px; border-radius: 10px; font-weight: 600; text-transform: lowercase; }
+      .dict-main-translation { font-size: 14px; color: var(--text-1); font-weight: 500; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border-light); }
+      .dict-meanings { margin: 0; padding-left: 20px; }
+      .dict-meanings li { margin-bottom: 6px; color: var(--text-2); }
+      .dict-def { color: var(--text-1); font-weight: 500; }
+      .dict-example { display: block; font-size: 11px; color: var(--text-3); font-style: italic; margin-top: 2px; padding-left: 2px; }
+      .dict-sentence { font-size: 13px; line-height: 1.7; }
+      .dict-translation { color: var(--text-1); font-size: 14px; margin-bottom: 8px; line-height: 1.6; }
+      .dict-vocab { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 8px; border-top: 1px solid var(--border-light); }
+      .dict-vocab-item { font-size: 11px; color: var(--text-2); background: var(--bg-warm); padding: 3px 8px; border-radius: 6px; border: 1px solid var(--border-light); }
+      .dict-vocab-item b { color: var(--text-1); font-weight: 600; margin-right: 4px; }
+
+      /* ═══ Welcome / Mode Chooser ═══ */
+      .welcome-screen {
+        position: fixed; inset: 0; z-index: 50;
+        display: flex; align-items: center; justify-content: center;
+        background: var(--bg);
+      }
+      .welcome-inner {
+        display: flex; flex-direction: column; align-items: center; gap: 32px;
+        max-width: 520px; text-align: center;
+      }
+      .welcome-title { font-size: 28px; font-weight: 700; color: var(--text-1); letter-spacing: -0.03em; }
+      .welcome-sub { font-size: 14px; color: var(--text-3); line-height: 1.6; margin-top: -16px; }
+      .welcome-modes { display: flex; gap: 20px; }
+      .welcome-mode-card {
+        display: flex; flex-direction: column; align-items: center; gap: 14px;
+        padding: 32px 36px;
+        background: var(--surface);
+        border: 2px solid var(--border);
+        border-radius: var(--r);
+        cursor: pointer;
+        transition: all 0.2s var(--ease);
+        min-width: 200px;
+      }
+      .welcome-mode-card:hover {
+        border-color: var(--accent);
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-md);
+      }
+      .welcome-mode-card svg { color: var(--accent); }
+      .welcome-mode-card h3 { font-size: 16px; font-weight: 700; color: var(--text-1); }
+      .welcome-mode-card p { font-size: 12px; color: var(--text-3); line-height: 1.5; }
+      .welcome-hint { font-size: 12px; color: var(--text-3); margin-top: -8px; }
+      .welcome-hint kbd, kbd { display: inline-block; padding: 2px 5px; font-size: 10px; font-family: var(--mono); background: var(--bg-warm); border: 1px solid var(--border); border-radius: 3px; color: var(--text-2); }
+
+      /* ═══ PDF Viewer ═══ */
+      .pdf-viewer {
+        display: flex; flex-direction: column;
+        width: 100%; height: 100%;
+      }
+      .pdf-toolbar {
+        display: flex; align-items: center; gap: 8px;
+        padding: 8px 16px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border-light);
+        flex-shrink: 0;
+      }
+      .pdf-toolbar .btn { font-size: 12px; }
+      .pdf-page-info { font-size: 12px; color: var(--text-2); font-weight: 600; font-family: var(--mono); min-width: 80px; text-align: center; }
+      .pdf-toolbar-spacer { flex: 1; }
+      .pdf-view-mode {
+        display: flex; background: var(--bg-warm); border-radius: var(--r-full); padding: 2px;
+      }
+      .pdf-view-btn {
+        padding: 4px 10px; font-size: 11px; font-weight: 600;
+        color: var(--text-3); background: none; border: none;
+        border-radius: var(--r-full); cursor: pointer; font-family: var(--sans);
+        transition: all 0.15s;
+      }
+      .pdf-view-btn.active { background: var(--surface); color: var(--text-1); box-shadow: var(--shadow-xs); }
+
+      /* PDF file list */
+      .pdf-file-list {
+        background: var(--surface); border-bottom: 1px solid var(--border-light);
+        padding: 6px 12px; display: flex; flex-wrap: wrap; gap: 6px; max-height: 120px; overflow-y: auto;
+      }
+      .pdf-file-item {
+        display: flex; align-items: center; gap: 4px;
+        padding: 4px 8px; border-radius: var(--r-sm);
+        background: var(--bg-warm); border: 1px solid var(--border-light);
+        font-size: 11px; cursor: pointer; transition: all 0.15s;
+      }
+      .pdf-file-item:hover { border-color: var(--accent); }
+      .pdf-file-item.active { background: rgba(16,185,129,0.1); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+      .pdf-file-name { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .pdf-file-remove {
+        background: none; border: none; color: var(--text-3); font-size: 14px;
+        cursor: pointer; padding: 0 2px; line-height: 1;
+      }
+      .pdf-file-remove:hover { color: var(--red); }
+      .pdf-pages-container {
+        flex: 1; overflow: auto; padding: 16px;
+        display: flex; flex-direction: column; align-items: center; gap: 12px;
+      }
+      .pdf-pages-container.dual-col {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+        justify-items: center; align-items: start;
+      }
+      .pdf-pages-container.single-page {
+        justify-content: center;
+      }
+      .pdf-pages-container.dual-paged {
+        flex-direction: row; align-items: center; justify-content: center;
+      }
+      .pdf-page-wrap {
+        background: #fff; box-shadow: var(--shadow-md); border-radius: 4px;
+        overflow: hidden; flex-shrink: 0;
+      }
+      .pdf-pages-container.dual-col .pdf-page-wrap { flex-shrink: 0; }
+      .pdf-page-wrap canvas { display: block; }
+      .pdf-page-placeholder { background: var(--bg-warm); display: flex; align-items: center; justify-content: center; }
+      .pdf-page-placeholder::after { content: ''; width: 24px; height: 24px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; }
+
+      /* PDF text layer for text selection */
+      .pdf-text-layer {
+        position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+        overflow: hidden; line-height: 1.0;
+        -webkit-text-size-adjust: none;
+        -moz-text-size-adjust: none;
+        text-size-adjust: none;
+      }
+      .pdf-text-layer > span {
+        color: transparent;
+        position: absolute;
+        white-space: pre;
+        transform-origin: 0% 0%;
+        cursor: text;
+        overflow: hidden;
+      }
+      .pdf-text-layer ::selection { background: rgba(16, 185, 129, 0.35); }
+      .pdf-text-layer ::-moz-selection { background: rgba(16, 185, 129, 0.35); }
+      .pdf-page-wrap { position: relative; }
+
+      /* PDF zoom indicator */
+      .pdf-zoom-info { font-size: 11px; color: var(--text-3); font-family: var(--mono); min-width: 50px; text-align: center; }
+
+      /* ═══ Help Modal ═══ */
+      .help-section h3 { font-size: 14px; font-weight: 700; color: var(--text-1); margin-bottom: 14px; }
+      .help-grid { display: flex; flex-direction: column; gap: 14px; }
+      .help-item {
+        display: flex; gap: 12px; align-items: flex-start;
+        padding: 12px 14px;
+        background: var(--bg-warm);
+        border-radius: var(--r-sm);
+      }
+      .help-icon { font-size: 20px; flex-shrink: 0; line-height: 1; margin-top: 2px; }
+      .help-item strong { font-size: 13px; font-weight: 700; color: var(--text-1); display: block; margin-bottom: 4px; }
+      .help-item p { font-size: 12px; color: var(--text-2); line-height: 1.6; margin: 0; }
+      .help-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      .help-table td { padding: 8px 12px; border-bottom: 1px solid var(--border-light); }
+      .help-table td:first-child { font-weight: 600; color: var(--text-1); white-space: nowrap; width: 180px; }
+      .help-table td:last-child { color: var(--text-2); }
+
+      /* ═══ Responsive ═══ */
+      @media (max-width: 1024px) { .side-panel { width: 360px; } }
+      @media (max-width: 768px) {
+        .workspace { flex-direction: column; }
+        .side-panel { width: 100%; flex-direction: row; height: 300px; border-left: none; border-top: 1px solid var(--border-light); }
+        .panel-section { flex: 1; min-height: 0; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <nav class="topbar">
+        <div class="topbar-brand">
+          <span class="brand-name">智慧课堂</span>
+          <span class="nav-status" id="nav-status">
+            <span class="status-dot pulse"></span>
+            <span id="status-text">准备就绪</span>
+          </span>
+        </div>
+        <div class="topbar-center">
+          <div class="pill-toggle" id="mode-toggle">
+            <button class="pill-btn active" data-mode="fast">快速</button>
+            <button class="pill-btn" data-mode="deep">深度</button>
+          </div>
+          <button class="model-btn" id="btn-switch-model" title="切换模型">
+            <span id="current-model-name">--</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <span style="color:var(--border);font-size:14px;margin:0 2px">│</span>
+          <span style="font-size:10px;color:var(--text-3);font-weight:600">翻译</span>
+          <button class="model-btn" id="btn-switch-translate-model" title="切换翻译模型" style="font-size:10px;padding:4px 10px">
+            <span id="current-translate-model">--</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div style="position:relative">
+            <button class="icon-btn" id="btn-api-info" title="查看 API 配置">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+            </button>
+            <div class="api-popover" id="api-popover">
+              <div class="api-popover-row">
+                <span class="api-popover-label">主 API</span>
+                <span class="api-popover-val" id="api-popover-main">--</span>
+              </div>
+              <div class="api-popover-row">
+                <span class="api-popover-label">快速 API</span>
+                <span class="api-popover-val" id="api-popover-fast">--</span>
+              </div>
+              <div class="api-popover-row">
+                <span class="api-popover-label">翻译 API</span>
+                <span class="api-popover-val" id="api-popover-translate">--</span>
+              </div>
+              <div style="text-align:right;margin-top:6px">
+                <button class="api-popover-edit" id="api-popover-edit-btn">修改设置</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="flex:1"></div>
+        <div class="topbar-actions">
+          <div class="sw-group" id="btn-auto-analyze" title="自动解析新课件">
+            <span class="sw-label">自动</span>
+            <div class="sw-track"><div class="sw-thumb"></div></div>
+          </div>
+          <div class="sw-group on" id="btn-follow-latest" title="自动跳转到最新课件">
+            <span class="sw-label">跟随</span>
+            <div class="sw-track"><div class="sw-thumb"></div></div>
+          </div>
+          <div class="sw-group on" id="btn-translate-toggle" title="启用划词工具">
+            <span class="sw-label">划词</span>
+            <div class="sw-track"><div class="sw-thumb"></div></div>
+          </div>
+          <div class="nav-sep"></div>
+          <button class="text-btn" id="btn-manual-analyze" title="手动解析当前页面">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+            解析
+          </button>
+          <button class="icon-btn" id="btn-screenshot-chat" title="截图到对话 (Ctrl+Shift+S)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/><path d="M21 15l-5-5L5 21"/></svg>
+          </button>
+          <button class="icon-btn" id="btn-layout-swap" title="左右互换布局">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="7 16 3 12 7 8"/><polyline points="17 8 21 12 17 16"/><line x1="3" y1="12" x2="21" y2="12"/></svg>
+          </button>
+          <button class="icon-btn" id="btn-help" title="使用说明">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r="0.5" fill="currentColor"/></svg>
+          </button>
+          <button class="icon-btn" id="btn-settings" title="API 设置">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68 1.65 1.65 0 0010 3.17V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          </button>
+        </div>
+      </nav>
+
+      <div class="online-bar" id="online-bar">
+        <button class="online-bar-btn yk-toggle active" id="yk-btn-live" title="显示雨课堂实时页面">雨课堂</button>
+        <button class="online-bar-btn yk-toggle" id="yk-btn-slides" title="查看捕获的课件">课件</button>
+        <button class="online-bar-btn" id="yk-btn-newtab" title="迁移到独立浏览器窗口">独立窗口</button>
+        <button class="online-bar-btn danger" id="yk-btn-close" title="关闭雨课堂嵌入视图">✕ 关闭</button>
+        <div class="online-bar-sep"></div>
+        <span style="color:var(--text-3);font-weight:600;font-size:11px">链接</span>
+        <input type="text" class="online-bar-url" id="online-url" placeholder="https://www.yuketang.cn/web/?index" />
+        <button class="online-bar-btn primary" id="btn-online-go" title="导航到此链接">跳转</button>
+        <div class="online-bar-sep"></div>
+        <button class="online-bar-btn" id="btn-online-relogin" title="清除登录状态重新登录">重新登录</button>
+        <button class="online-bar-btn danger" id="btn-online-stop" title="停止浏览器监听">停止监听</button>
+      </div>
+
+      <div class="workspace">
+        <main class="slide-stage" style="position:relative">
+          <div class="slide-display" id="slide-display">
+            <div class="slide-placeholder">
+              <img src="/assets/empty-state.png" alt="" style="width:140px;height:140px" />
+              <span>等待课件载入</span>
+            </div>
+          </div>
+          <div class="slide-nav" id="slide-nav"></div>
+          <button class="slide-nav-toggle" id="btn-toggle-nav" title="显示/隐藏队列">▼ 队列</button>
+        </main>
+
+        <div class="resize-handle-h" id="workspace-resize-handle"></div>
+
+        <aside class="side-panel" id="side-panel">
+          <div class="panel-section analysis-section">
+            <div class="section-header">
+              <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              <span class="section-title">解析</span>
+              <div class="section-header-actions">
+                <button class="section-action-btn" data-minimize="analysis" title="最小化">─</button>
+              </div>
+            </div>
+            <div class="panel-body" id="analysis-body">
+              <div class="panel-welcome"><p>点击「解析」分析当前课件</p></div>
+            </div>
+          </div>
+
+          <div class="resize-handle" id="panel-resize-handle"></div>
+
+          <div class="panel-section chat-section">
+            <div class="section-header">
+              <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+              <span class="section-title">提问</span>
+              <div class="section-header-actions">
+                <button class="section-action-btn" data-minimize="chat" title="最小化">─</button>
+              </div>
+            </div>
+            <div class="chat-body-inner" id="chat-body">
+              <div class="chat-context" id="chat-context">
+                <button class="ctx-toggle" id="btn-toggle-ctx">+ 背景信息</button>
+                <div class="ctx-area" id="ctx-area" style="display:none">
+                  <div class="ctx-chips" id="ctx-chips"></div>
+                  <textarea id="chat-background" placeholder="输入背景信息后按 Enter 添加..." rows="1"></textarea>
+                </div>
+              </div>
+              <div class="chat-messages" id="chat-messages">
+                <div class="chat-bubble system">对当前课件有疑问？直接问我吧</div>
+              </div>
+              <div class="chat-composer">
+                <button class="attach-btn" id="btn-chat-model" title="切换对话模型" style="font-size:10px;font-weight:600;min-width:auto;padding:4px 6px">
+                  <span id="chat-model-label">模型</span>
+                </button>
+                <button class="attach-btn" id="btn-chat-attach" title="添加附件">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+                </button>
+                <div style="flex:1;display:flex;flex-direction:column;gap:4px">
+                  <div class="chat-attach-preview" id="chat-attach-preview" style="display:none"></div>
+                  <textarea id="chat-input" placeholder="输入问题... (Ctrl+V 粘贴图片)" rows="1"></textarea>
+                </div>
+                <button class="send-btn" id="btn-send">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <div class="modal-overlay" id="fullscreen-modal" style="display:none">
+        <div class="modal-sheet">
+          <div class="modal-head">
+            <h2 id="modal-title">详细解析</h2>
+            <button class="close-btn" id="btn-close-modal">&times;</button>
+          </div>
+          <div class="modal-content prose" id="modal-body"></div>
+        </div>
+      </div>
+
+      <div class="modal-overlay" id="settings-modal" style="display:none">
+        <div class="modal-sheet settings-sheet">
+          <div class="modal-head">
+            <h2>设置</h2>
+            <button class="close-btn" id="btn-close-settings">&times;</button>
+          </div>
+          <div class="modal-content">
+            <div class="field">
+              <label>接入方式</label>
+              <div class="chip-row">
+                <button class="chip active" data-preset="custom">自定义中转</button>
+                <button class="chip" data-preset="anthropic">Anthropic</button>
+                <button class="chip" data-preset="openai">OpenAI</button>
+                <button class="chip" data-preset="deepseek">DeepSeek</button>
+                <button class="chip" data-preset="glm">GLM</button>
+              </div>
+            </div>
+            <div class="field">
+              <label for="cfg-url">接口地址</label>
+              <input id="cfg-url" type="text" placeholder="https://api.nuoda.vip/v1" />
+              <small>中转填完整路径（含 /v1），官方会自动补全</small>
+            </div>
+            <div class="field">
+              <label for="cfg-key">主密钥</label>
+              <input id="cfg-key" type="password" placeholder="sk-..." />
+              <small>用于深度模型，仅保存在本地</small>
+            </div>
+            <div class="field">
+              <label for="cfg-key-fast">快速模型密钥</label>
+              <input id="cfg-key-fast" type="password" placeholder="留空与主密钥相同" />
+              <small>留空时使用主密钥</small>
+            </div>
+            <div class="field">
+              <label for="cfg-model">默认模型</label>
+              <input id="cfg-model" type="text" placeholder="claude-sonnet-4-6" />
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="cfg-model-fast">快速模型</label>
+                <input id="cfg-model-fast" type="text" placeholder="claude-haiku-4-5-20251001" />
+              </div>
+              <div class="field">
+                <label for="cfg-model-deep">深度模型</label>
+                <input id="cfg-model-deep" type="text" placeholder="claude-sonnet-4-6" />
+              </div>
+            </div>
+            <hr style="border:none;border-top:1px solid var(--border-light);margin:16px 0" />
+            <div class="field" style="margin-bottom:6px">
+              <label style="font-size:13px;font-weight:700;color:var(--text-1)">划词工具</label>
+            </div>
+            <div class="field">
+              <label>翻译接入方式</label>
+              <div class="chip-row">
+                <button class="chip active" data-translate-preset="custom">自定义</button>
+                <button class="chip" data-translate-preset="openai">OpenAI</button>
+                <button class="chip" data-translate-preset="deepseek">DeepSeek</button>
+                <button class="chip" data-translate-preset="glm">GLM</button>
+              </div>
+            </div>
+            <div class="field">
+              <label for="cfg-translate-key">翻译密钥</label>
+              <input id="cfg-translate-key" type="password" placeholder="sk-..." />
+              <small>独立 API Key，留空使用主密钥</small>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="cfg-translate-url">翻译接口</label>
+                <input id="cfg-translate-url" type="text" placeholder="留空使用主接口" />
+              </div>
+              <div class="field">
+                <label for="cfg-translate-model">翻译模型</label>
+                <input id="cfg-translate-model" type="text" placeholder="deepseek-v4-flash" />
+              </div>
+            </div>
+            <hr style="border:none;border-top:1px solid var(--border-light);margin:16px 0" />
+            <div class="field" style="margin-bottom:6px">
+              <label style="font-size:13px;font-weight:700;color:var(--text-1)">划词工具设置</label>
+            </div>
+            <div class="field">
+              <label>触发方式</label>
+              <div class="chip-row">
+                <button class="chip active" data-selection-mode="toolbar" id="sel-mode-toolbar">弹出工具栏</button>
+                <button class="chip" data-selection-mode="direct" id="sel-mode-direct">直接翻译</button>
+                <button class="chip" data-selection-mode="off" id="sel-mode-off">关闭</button>
+              </div>
+              <small>「弹出工具栏」选中文本后显示操作按钮；「直接翻译」选中即翻译；「关闭」禁用划词</small>
+            </div>
+            <div class="field">
+              <label>工具栏功能项</label>
+              <div class="checkbox-group">
+                <label class="checkbox-item"><input type="checkbox" id="sel-item-translate" checked /> 翻译</label>
+                <label class="checkbox-item"><input type="checkbox" id="sel-item-explain" checked /> 解释</label>
+                <label class="checkbox-item"><input type="checkbox" id="sel-item-ask" checked /> 发起提问</label>
+                <label class="checkbox-item"><input type="checkbox" id="sel-item-copy" /> 复制原文</label>
+              </div>
+            </div>
+            <div class="field-actions">
+              <button class="btn outline" id="btn-test">测试连接</button>
+              <button class="btn primary" id="btn-save-cfg">保存</button>
+            </div>
+            <div class="test-msg" id="test-msg"></div>
+          </div>
+        </div>
+      </div>
+      <div class="welcome-screen" id="welcome-screen">
+        <div class="welcome-inner">
+          <h1 class="welcome-title">智慧课堂</h1>
+          <p class="welcome-sub">AI 驱动的课堂学习助手</p>
+          <div class="welcome-modes">
+            <div class="welcome-mode-card" data-start-mode="online">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12.55a11 11 0 0114.08 0"/><path d="M1.42 9a16 16 0 0121.16 0"/><path d="M8.53 16.11a6 6 0 016.95 0"/><circle cx="12" cy="20" r="1.5" fill="currentColor"/></svg>
+              <h3>实时模式</h3>
+              <p>连接雨课堂，自动捕获并解析课件</p>
+            </div>
+            <div class="welcome-mode-card" data-start-mode="offline">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              <h3>离线模式</h3>
+              <p>上传 PDF / 图片，AI 解析与翻译</p>
+            </div>
+          </div>
+          <p class="welcome-hint">首次使用？请先点击右上角 ⚙ 设置 配置 API 密钥</p>
+        </div>
+      </div>
+
+      <div class="modal-overlay" id="help-modal" style="display:none">
+        <div class="modal-sheet settings-sheet">
+          <div class="modal-head">
+            <h2>使用说明</h2>
+            <button class="close-btn" id="btn-close-help">&times;</button>
+          </div>
+          <div class="modal-content">
+            <div class="help-section">
+              <h3>核心功能</h3>
+              <div class="help-grid">
+                <div class="help-item">
+                  <span class="help-icon">✨</span>
+                  <div>
+                    <strong>划词工具栏</strong>
+                    <p>选中任意文本后弹出工具栏，可一键翻译、解释或发起提问。支持 PDF 与网页内所有文字。</p>
+                  </div>
+                </div>
+                <div class="help-item">
+                  <span class="help-icon">📸</span>
+                  <div>
+                    <strong>截图到对话</strong>
+                    <p>按 <kbd>Ctrl+Shift+S</kbd> 或点击工具栏截图按钮，将当前页面截图添加到 AI 对话中。</p>
+                  </div>
+                </div>
+                <div class="help-item">
+                  <span class="help-icon">🔍</span>
+                  <div>
+                    <strong>AI 解析</strong>
+                    <p>自动或手动解析课件内容。支持「快速」与「深度」两种模式，深度模式更精确但耗时更长。</p>
+                  </div>
+                </div>
+                <div class="help-item">
+                  <span class="help-icon">💬</span>
+                  <div>
+                    <strong>智能对话</strong>
+                    <p>右侧面板可随时向 AI 提问，自动关联当前课件上下文。支持粘贴图片、上传附件。</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <hr style="border:none;border-top:1px solid var(--border-light);margin:20px 0" />
+            <div class="help-section">
+              <h3>快捷操作</h3>
+              <table class="help-table">
+                <tr><td><kbd>Ctrl+Shift+S</kbd></td><td>截取当前页面到对话</td></tr>
+                <tr><td>鼠标选中文本</td><td>弹出划词工具栏（翻译/解释/提问）</td></tr>
+                <tr><td>滚轮滚动</td><td>翻页浏览课件 / PDF</td></tr>
+                <tr><td>拖拽文件到窗口</td><td>离线模式快速导入文件</td></tr>
+                <tr><td><kbd>Ctrl+V</kbd> 在聊天框</td><td>粘贴剪贴板中的图片</td></tr>
+              </table>
+            </div>
+            <hr style="border:none;border-top:1px solid var(--border-light);margin:20px 0" />
+            <div class="help-section">
+              <h3>工具栏按钮说明</h3>
+              <table class="help-table">
+                <tr><td>快速 / 深度</td><td>切换 AI 解析精度</td></tr>
+                <tr><td>自动</td><td>新课件出现时自动解析</td></tr>
+                <tr><td>跟随</td><td>自动跳转到最新捕获的课件</td></tr>
+                <tr><td>划词</td><td>启用 / 禁用划词翻译工具栏</td></tr>
+                <tr><td>解析</td><td>手动解析当前页面</td></tr>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+    <script>
+      (function() {
+        if (!window.katex) return;
+        marked.use({
+          extensions: [{
+            name: 'inlineMath',
+            level: 'inline',
+            start: function(src) {
+              var i1 = src.indexOf('$');
+              var i2 = src.indexOf('\\(');
+              if (i1 === -1) return i2;
+              if (i2 === -1) return i1;
+              return Math.min(i1, i2);
+            },
+            tokenizer: function(src) {
+              var match = src.match(/^\$([^\$\n]+?)\$/);
+              if (match) return { type: 'inlineMath', raw: match[0], text: match[1] };
+              var match2 = src.match(/^\\\(([^\)]+?)\\\)/);
+              if (match2) return { type: 'inlineMath', raw: match2[0], text: match2[1] };
+            },
+            renderer: function(token) {
+              try { return katex.renderToString(token.text, { displayMode: false, throwOnError: false }); }
+              catch(e) { return '$' + token.text + '$'; }
+            }
+          }, {
+            name: 'blockMath',
+            level: 'block',
+            start: function(src) {
+              var i1 = src.indexOf('$$');
+              var i2 = src.indexOf('\\[');
+              if (i1 === -1) return i2;
+              if (i2 === -1) return i1;
+              return Math.min(i1, i2);
+            },
+            tokenizer: function(src) {
+              var match = src.match(/^\$\$([\s\S]+?)\$\$/);
+              if (match) return { type: 'blockMath', raw: match[0], text: match[1].trim() };
+              var match2 = src.match(/^\\\[([\s\S]+?)\\\]/);
+              if (match2) return { type: 'blockMath', raw: match2[0], text: match2[1].trim() };
+            },
+            renderer: function(token) {
+              try { return katex.renderToString(token.text, { displayMode: true, throwOnError: false }); }
+              catch(e) { return '<pre>' + token.text + '</pre>'; }
+            }
+          }]
+        });
+      })();
+    </script>
+    <script src="/app.js"></script>
+  </body>
+</html>

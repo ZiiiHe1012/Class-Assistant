@@ -1,0 +1,9 @@
+node_modules/
+.env
+data/browser/*
+!data/browser/.gitkeep
+data/captures/*
+!data/captures/.gitkeep
+dist/
+*.exe
+npm-debug.log*
