@@ -1,0 +1,234 @@
+\documentclass[aspectratio=169]{beamer}
+\usepackage{ctex}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tikz}
+
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}{}
+
+\title{智慧课堂助手}
+\subtitle{软件工程探索与实践}
+\author{颜宇翔 \quad 魏天翼 \quad 蒋天源}
+\institute{小组项目汇报}
+\date{2026年5月26日}
+
+\begin{document}
+
+% ---- 封面 ----
+\begin{frame}
+  \titlepage
+\end{frame}
+
+% ---- 选题介绍 ----
+\begin{frame}{选题介绍}
+  \begin{block}{项目背景}
+    \begin{itemize}
+      \item 在线课堂（雨课堂等）中，学生需要快速理解课件内容
+      \item 传统方式：手动截图、记笔记，效率低且容易遗漏
+      \item 需求：实时捕获课件、AI 辅助分析、划词翻译、笔记管理
+    \end{itemize}
+  \end{block}
+
+  \begin{block}{项目目标}
+    \begin{itemize}
+      \item 自动捕获课堂课件图片（在线/离线模式）
+      \item AI 智能解析：分类、要点提炼、题目解答、深度思考
+      \item OCR 精确文字层 + 划词翻译/解释
+      \item 笔记系统：AI 辅助记录、管理与导出
+    \end{itemize}
+  \end{block}
+\end{frame}
+
+% ---- 技术方案：总体架构 ----
+\begin{frame}{技术方案 —— 总体架构}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{前端（Electron 桌面端）}
+        \begin{itemize}
+          \item Electron + BrowserView 内嵌雨课堂
+          \item PDF.js 渲染离线 PDF 文档
+          \item KaTeX + marked.js 渲染公式与 Markdown
+          \item OCR 文字层覆盖，支持划词选择
+        \end{itemize}
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{block}{后端（Node.js 服务）}
+        \begin{itemize}
+          \item Express RESTful API + SSE 实时推送
+          \item OpenAI 兼容接口（多模型路由）
+          \item Tesseract.js OCR（中英双语 WASM）
+          \item SHA-1 图像哈希去重与笔记持久化
+        \end{itemize}
+      \end{block}
+    \end{column}
+  \end{columns}
+
+  \vspace{0.4cm}
+  \begin{block}{整体流程}
+    课件捕获 $\rightarrow$ 哈希去重/尺寸过滤 $\rightarrow$ AI 视觉分析 $\rightarrow$ OCR 文字层 $\rightarrow$ 笔记记录与管理
+  \end{block}
+\end{frame}
+
+% ---- 技术方案：在线课件捕获与去重 ----
+\begin{frame}{技术方案 —— 课件捕获与去重}
+  \begin{block}{Chrome DevTools Protocol (CDP) 捕获}
+    \begin{itemize}
+      \item 附加 CDP 调试器，监听 \texttt{Network.responseReceived} 筛选图片响应
+      \item \texttt{loadingFinished} 时调用 \texttt{getResponseBody} 获取完整图片
+      \item 每 2.5 秒扫描 DOM 中大面积 \texttt{<img>} 作为兜底补充
+    \end{itemize}
+  \end{block}
+
+  \begin{block}{三级去重与过滤}
+    \begin{enumerate}
+      \item \textbf{URL 去重}：\texttt{interceptedUrls: Set}（LRU 淘汰）
+      \item \textbf{SHA-1 内容哈希}：\texttt{seenHashes: Map} 记录已见图片
+      \item \textbf{连续帧防抖}：\texttt{lastSubmittedHash} 过滤视频流重复帧
+    \end{enumerate}
+    过滤过小尺寸及宽高比异常（$>6$ 或 $<0.3$）的 UI 元素图片
+  \end{block}
+\end{frame}
+
+% ---- 技术方案：AI 智能分析 ----
+\begin{frame}{技术方案 —— AI 智能分析}
+  \begin{block}{多模态视觉分析}
+    \begin{itemize}
+      \item 图片以 \texttt{data:image/...;base64,...} 格式通过 \texttt{image\_url} 字段发送
+      \item System Prompt 要求输出结构化 JSON（分类、要点、解答）
+      \item 五分类体系：课件 / 选择题 / 填空题 / 主观题 / 非课程内容
+    \end{itemize}
+  \end{block}
+
+  \begin{block}{多模型策略与深度思考}
+    \begin{itemize}
+      \item 快速模型：实时解析、翻译；深度模型：二次深度分析
+      \item 深度思考结构化输出：核心概念 / 推导原理 / 典型考题 / 常见误区
+      \item 多端点路由：支持 OpenAI / DeepSeek / GLM 等兼容接口
+      \item 流式 SSE 逐块推送，前端 KaTeX + marked.js 实时渲染
+    \end{itemize}
+  \end{block}
+\end{frame}
+
+% ---- 技术方案：OCR 与划词翻译 ----
+\begin{frame}{技术方案 —— OCR 与划词翻译}
+  \begin{block}{Tesseract.js OCR 引擎}
+    \begin{itemize}
+      \item WASM 离线识别，加载 \texttt{chi\_sim+eng} 双语言模型
+      \item TSV 结构化输出：解析 level=5（词级）获取每词坐标与文本
+      \item 单例 Worker 复用 + 本地模型文件缓存，避免重复下载
+    \end{itemize}
+  \end{block}
+
+  \begin{block}{划词翻译/解释}
+    \begin{itemize}
+      \item 三种触发模式：弹出工具栏 / 直接翻译 / 关闭
+      \item 词典式结构化翻译：单词返回音标+词性+例句，句子返回整体翻译+关键词汇
+      \item SSE 流式实时展示，弹窗支持拖拽定位与 Pin 固定
+    \end{itemize}
+  \end{block}
+\end{frame}
+
+% ---- 技术方案：笔记系统 ----
+\begin{frame}{技术方案 —— 笔记系统}
+  \begin{block}{核心功能}
+    \begin{itemize}
+      \item 每张课件可记录 Markdown 手写笔记 + AI 生成笔记，支持自定义标签
+      \item AI 生成：截图 + 解析上下文同时送入视觉模型，流式输出至面板
+      \item 全局笔记管理器：关键词搜索、编辑、删除、大图对照预览
+      \item 一键导出全部笔记为结构化 Markdown 文档
+    \end{itemize}
+  \end{block}
+  \begin{block}{技术实现}
+    \begin{itemize}
+      \item 以图片 SHA-1 哈希为键，每张课件对应独立 JSON 文件，重启不丢失
+      \item 独立 \texttt{NotesService} 模块，API 路由支持 CRUD + SSE 流式写入
+      \item 前端 Markdown 实时预览（marked.js），笔记面板嵌入分析 Tab Bar
+    \end{itemize}
+  \end{block}
+\end{frame}
+
+% ---- 技术方案：离线 PDF 模式 ----
+\begin{frame}{技术方案 —— 离线 PDF 模式}
+  \begin{block}{PDF.js 客户端渲染}
+    \begin{itemize}
+      \item PDF.js 解析 PDF，\texttt{page.render()} 渲染到 Canvas
+      \item 支持 \texttt{devicePixelRatio} 高清缩放
+      \item \texttt{IntersectionObserver} 懒加载，仅渲染视口附近页面
+    \end{itemize}
+  \end{block}
+
+  \begin{block}{透明文本层}
+    \begin{itemize}
+      \item \texttt{page.getTextContent()} 获取文字内容及 transform 矩阵
+      \item 绝对定位透明 \texttt{<span>} 叠加在 Canvas 上方
+      \item 支持原生文本选中，触发划词翻译
+    \end{itemize}
+  \end{block}
+\end{frame}
+
+% ---- 功能演示 ----
+\begin{frame}{功能演示（一）}
+  \begin{center}
+    \includegraphics[width=0.85\textwidth]{demo1.png}
+  \end{center}
+\end{frame}
+
+\begin{frame}{功能演示（二）}
+  \begin{center}
+    \includegraphics[width=0.85\textwidth]{demo2.png}
+  \end{center}
+\end{frame}
+
+\begin{frame}{功能演示（三）}
+  \begin{center}
+    \includegraphics[width=0.85\textwidth]{demo3.png}
+  \end{center}
+\end{frame}
+
+% ---- 团队分工 ----
+\begin{frame}{团队分工}
+  \begin{table}[h]
+    \centering
+    \renewcommand{\arraystretch}{1.5}
+    \begin{tabular}{ll}
+      \toprule
+      \textbf{成员} & \textbf{主要职责} \\
+      \midrule
+      颜宇翔 & 前端界面开发、交互设计、OCR 集成 \\
+      魏天翼 & 后端服务开发、AI 接口对接、流式通信、笔记服务 \\
+      蒋天源 & Electron 主进程、CDP 课件捕获、打包部署 \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+
+  \vspace{0.5cm}
+  \begin{block}{协作方式}
+    \begin{itemize}
+      \item Git 版本管理，多分支协作，统一 RESTful API 接口规范
+      \item 迭代开发：核心捕获 → AI 分析 → OCR → 对话 → 笔记系统
+    \end{itemize}
+  \end{block}
+\end{frame}
+
+% ---- 后续规划 ----
+\begin{frame}{后续规划}
+  \begin{enumerate}
+    \item \textbf{集成 RAG}：引入检索增强生成，结合课件知识库提升 AI 回答准确性
+    \item \textbf{知识库可视化管理}：提供图形化界面管理课件资料、笔记与历史记录
+    \item \textbf{语音转写集成}：实时转写课堂讲解，辅助笔记与复习
+    \item \textbf{优化交互体验}：简化操作流程，提升响应速度与界面友好度
+  \end{enumerate}
+\end{frame}
+
+% ---- 结尾 ----
+\begin{frame}
+  \centering
+  \vspace{2cm}
+  {\Huge 谢谢！}
+\end{frame}
+
+\end{document}

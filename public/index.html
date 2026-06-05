@@ -1222,6 +1222,266 @@
         .side-panel { width: 100%; flex-direction: row; height: 300px; border-left: none; border-top: 1px solid var(--border-light); }
         .panel-section { flex: 1; min-height: 0; }
       }
+
+      /* ═══ Panel Tabs ═══ */
+      .panel-tab-bar {
+        display: flex;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--border-light);
+        flex-shrink: 0;
+        background: var(--surface);
+      }
+      .panel-tab-btn {
+        padding: 9px 14px;
+        font-size: 12px; font-weight: 600;
+        color: var(--text-3);
+        background: none; border: none;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+        cursor: pointer;
+        transition: color 0.15s, border-color 0.15s;
+        font-family: var(--sans);
+      }
+      .panel-tab-btn:hover { color: var(--text-2); }
+      .panel-tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+      /* ═══ Notes Panel ═══ */
+      .notes-panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        min-height: 0;
+      }
+      .notes-toolbar {
+        display: flex; align-items: center; gap: 4px;
+        padding: 8px 16px;
+        border-bottom: 1px solid var(--border-light);
+        flex-shrink: 0;
+        flex-wrap: wrap;
+      }
+      .notes-editor-wrap {
+        flex: 1; min-height: 0;
+        display: flex; flex-direction: column;
+        overflow: hidden;
+      }
+      .notes-editor {
+        flex: 1; width: 100%;
+        padding: 14px 16px;
+        border: none; outline: none; resize: none;
+        font-size: 12px; font-family: var(--sans);
+        line-height: 1.75; color: var(--text-1);
+        background: transparent;
+      }
+      .notes-editor::placeholder { color: var(--text-4); }
+      .notes-preview {
+        flex: 1; overflow-y: auto;
+        padding: 14px 16px;
+      }
+      .notes-ai-block {
+        flex-shrink: 0;
+        max-height: 220px; overflow-y: auto;
+        border-top: 2px solid var(--purple-soft);
+        background: var(--purple-soft);
+      }
+      .notes-ai-header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 8px 16px;
+        font-size: 10px; font-weight: 700;
+        color: var(--purple);
+        text-transform: uppercase; letter-spacing: 0.06em;
+        background: var(--purple-soft);
+        position: sticky; top: 0;
+      }
+      .notes-ai-content { padding: 10px 16px 14px; }
+      .notes-tags-area {
+        padding: 10px 16px;
+        border-top: 1px solid var(--border-light);
+        flex-shrink: 0;
+        background: var(--surface);
+      }
+      .notes-tags-list {
+        display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; min-height: 4px;
+      }
+      .notes-tag-pill {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 2px 8px;
+        background: var(--accent-soft); color: var(--accent);
+        border-radius: var(--r-full);
+        font-size: 10px; font-weight: 600;
+      }
+      .notes-tag-pill-del {
+        cursor: pointer; opacity: 0.5; line-height: 1; font-size: 12px; margin-left: 1px;
+      }
+      .notes-tag-pill-del:hover { opacity: 1; color: var(--red); }
+      .notes-tag-input {
+        width: 100%; padding: 5px 10px;
+        border: 1px dashed var(--border);
+        border-radius: var(--r-sm);
+        background: none; color: var(--text-1);
+        font-size: 11px; font-family: var(--sans); outline: none;
+        transition: border-color 0.12s;
+      }
+      .notes-tag-input:focus { border-color: var(--accent); border-style: solid; }
+      .notes-preset-tags { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
+      .notes-preset-tag {
+        padding: 2px 8px;
+        font-size: 10px; font-weight: 600;
+        color: var(--text-3); background: var(--bg-warm);
+        border: 1px solid var(--border);
+        border-radius: var(--r-full); cursor: pointer;
+        transition: all 0.1s; font-family: var(--sans);
+      }
+      .notes-preset-tag:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+      .notes-save-status {
+        font-size: 10px; color: var(--accent); font-weight: 600;
+        opacity: 0; transition: opacity 0.4s;
+        white-space: nowrap;
+      }
+      .notes-save-status.visible { opacity: 1; }
+      .thumb-notes-dot {
+        position: absolute; bottom: 2px; right: 3px;
+        width: 5px; height: 5px; border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 4px rgba(16,185,129,0.6);
+      }
+      .thumb-notes-dot.has-ai { background: var(--purple); box-shadow: 0 0 4px rgba(139,92,246,0.6); }
+      .notes-tags-toggle {
+        display: flex; align-items: center; gap: 6px;
+        width: 100%; background: none; border: none;
+        font-size: 11px; font-weight: 600; color: var(--text-3);
+        cursor: pointer; padding: 0; font-family: var(--sans);
+        text-transform: uppercase; letter-spacing: 0.04em;
+        transition: color 0.12s;
+      }
+      .notes-tags-toggle:hover { color: var(--text-2); }
+      .notes-tags-count {
+        display: inline-flex; align-items: center; gap: 3px;
+        background: none; padding: 0;
+      }
+      .tags-toggle-arrow { margin-left: auto; opacity: 0.5; transition: transform 0.15s var(--ease); }
+      .notes-tags-area.open .tags-toggle-arrow { transform: rotate(180deg); }
+      .notes-tags-body { padding-top: 8px; }
+      .notes-tag-preview {
+        background: var(--accent-soft); color: var(--accent);
+        border-radius: var(--r-full);
+        font-size: 9px; font-weight: 700; padding: 1px 6px;
+        font-family: var(--mono); white-space: nowrap;
+      }
+      .notes-tag-preview-more { font-size: 9px; color: var(--text-3); font-weight: 600; font-family: var(--mono); }
+      .notes-title-input {
+        width: 100%; padding: 7px 0;
+        border: none; border-bottom: 1px solid var(--border-light);
+        outline: none; background: none;
+        font-size: 14px; font-weight: 700; color: var(--text-1);
+        font-family: var(--sans); letter-spacing: -0.01em;
+        transition: border-color 0.15s; margin-bottom: 6px;
+      }
+      .notes-title-input:focus { border-bottom-color: var(--accent); }
+      .notes-title-input::placeholder { color: var(--text-4); font-weight: 400; font-size: 13px; }
+      .notes-toolbar-btns { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+
+      /* ═══ Notes Manager Modal ═══ */
+      .nm-sheet { width: min(900px, 95vw) !important; height: 85vh; display: flex; flex-direction: column; position: relative; }
+      .nm-body { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+      .nm-list-col { width: 260px; flex-shrink: 0; display: flex; flex-direction: column; border-right: 1px solid var(--border-light); overflow: hidden; }
+      .nm-search-wrap { padding: 12px 14px; border-bottom: 1px solid var(--border-light); flex-shrink: 0; }
+      .nm-list-scroll { flex: 1; overflow-y: auto; padding: 8px; }
+      .nm-detail-col { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+      .nm-detail-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--text-4); font-size: 12px; }
+      .nm-detail-content { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+      .nm-slide-preview { border-radius: var(--r-sm); overflow: hidden; max-height: 150px; background: #111; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+      .nm-slide-preview img { max-width: 100%; max-height: 150px; object-fit: contain; display: block; cursor: zoom-in; }
+      .nm-detail-title {
+        width: 100%; padding: 6px 0;
+        border: none; border-bottom: 1.5px solid var(--border);
+        font-size: 15px; font-weight: 700; color: var(--text-1);
+        font-family: var(--sans); outline: none; background: none;
+        transition: border-color 0.15s; flex-shrink: 0;
+      }
+      .nm-detail-title:focus { border-bottom-color: var(--accent); }
+      .nm-detail-title::placeholder { color: var(--text-4); font-weight: 400; }
+      .nm-detail-section-label { font-size: 10px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em; flex-shrink: 0; }
+      .nm-detail-editor {
+        width: 100%; min-height: 100px;
+        padding: 10px 12px;
+        border: 1px solid var(--border); border-radius: var(--r-sm);
+        background: var(--bg-warm); color: var(--text-1);
+        font-size: 12px; font-family: var(--sans); resize: vertical;
+        outline: none; line-height: 1.75; transition: border-color 0.15s;
+      }
+      .nm-detail-editor:focus { border-color: var(--accent); }
+      .nm-detail-ai-content { font-size: 12px; line-height: 1.7; padding: 10px 12px; background: var(--purple-soft); border-radius: var(--r-sm); }
+      .nm-detail-tags { display: flex; flex-wrap: wrap; gap: 4px; flex-shrink: 0; }
+      .nm-detail-foot { display: flex; gap: 8px; padding-top: 4px; border-top: 1px solid var(--border-light); flex-shrink: 0; margin-top: auto; }
+      /* 列表卡片 */
+      .nm-card { background: var(--surface); border: 1.5px solid transparent; border-radius: var(--r-sm); padding: 10px 12px; margin-bottom: 6px; cursor: pointer; transition: all 0.15s; }
+      .nm-card:hover { border-color: var(--border); background: var(--surface-hover); }
+      .nm-card.active { border-color: var(--accent); background: var(--accent-soft); }
+      .nm-card-thumb { width: 100%; height: 44px; object-fit: cover; border-radius: 4px; margin-bottom: 6px; background: var(--bg-cool); display: block; }
+      .nm-card-title { font-size: 12px; font-weight: 700; color: var(--text-1); margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .nm-card-meta { font-size: 10px; color: var(--text-4); font-family: var(--mono); }
+      .nm-card-tags-row { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+      .nm-highlight { background: var(--amber-soft); border-radius: 2px; }
+      .nm-search-input {
+        width: 100%; padding: 9px 14px;
+        border: 1px solid var(--border); border-radius: var(--r-sm);
+        background: var(--bg-warm); color: var(--text-1);
+        font-size: 13px; font-family: var(--sans); outline: none;
+        transition: border-color 0.15s, box-shadow 0.15s;
+      }
+      .nm-search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+      .nm-search-input::placeholder { color: var(--text-4); }
+      .nm-empty { text-align:center; color: var(--text-3); padding: 40px; font-size: 13px; }
+      .nm-card {
+        background: var(--surface);
+        border: 1px solid var(--border-light);
+        border-radius: var(--r-sm);
+        padding: 14px 16px; margin-bottom: 10px;
+        transition: border-color 0.15s, box-shadow 0.15s;
+      }
+      .nm-card:hover { border-color: var(--border); box-shadow: var(--shadow-sm); }
+      .nm-card-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
+      .nm-card-title { font-size: 14px; font-weight: 700; color: var(--text-1); flex: 1; letter-spacing: -0.01em; }
+      .nm-card-date { font-size: 10px; color: var(--text-4); flex-shrink: 0; padding-top: 3px; font-family: var(--mono); }
+      .nm-card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+      .nm-card-preview {
+        font-size: 12px; color: var(--text-3); line-height: 1.6;
+        overflow: hidden; display: -webkit-box;
+        -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+      }
+      .nm-card-foot {
+        display: flex; align-items: center; gap: 6px; margin-top: 10px;
+        border-top: 1px solid var(--border-light); padding-top: 8px;
+      }
+      .nm-del-btn {
+        margin-left: auto; font-size: 11px; color: var(--text-3); background: none;
+        border: 1px solid var(--border); border-radius: var(--r-xs);
+        padding: 3px 10px; cursor: pointer; font-family: var(--sans); transition: all 0.12s;
+      }
+      .nm-del-btn:hover { color: var(--red); border-color: var(--red); }
+      .nm-highlight { background: var(--amber-soft); border-radius: 2px; }
+      .nm-section-row { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+      .nm-detail-preview { font-size: 13px; line-height: 1.75; padding: 10px 12px; background: var(--bg-warm); border: 1px solid var(--border); border-radius: var(--r-sm); overflow-y: auto; }
+      /* ── Notes Manager Lightbox ── */
+      .nm-lightbox { position: absolute; inset: 0; z-index: 10; display: flex; border-radius: inherit; overflow: hidden; }
+      .nm-lb-img-col { flex: 0 0 55%; background: #0f0f1a; display: flex; align-items: center; justify-content: center; padding: 20px; }
+      .nm-lb-img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: var(--r-sm); }
+      .nm-lb-notes-col { flex: 1; background: var(--surface); display: flex; flex-direction: column; overflow: hidden; position: relative; }
+      .nm-lb-close {
+        position: absolute; top: 12px; right: 14px;
+        width: 28px; height: 28px;
+        display: flex; align-items: center; justify-content: center;
+        background: var(--surface-active); border: 1px solid var(--border);
+        border-radius: var(--r-xs); color: var(--text-2);
+        font-size: 18px; cursor: pointer; z-index: 1; transition: all 0.12s;
+      }
+      .nm-lb-close:hover { background: var(--bg-warm); color: var(--text-1); }
+      .nm-lb-notes-body { flex: 1; overflow-y: auto; padding: 24px 20px 20px; }
+      .nm-lb-title { font-size: 18px; font-weight: 700; color: var(--text-1); margin-bottom: 14px; letter-spacing: -0.02em; }
+      .nm-lb-section { font-size: 10px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em; margin: 14px 0 6px; }
+      .nm-lb-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-shrink: 0; }
+      .nm-lb-notes-body { flex: 1; overflow-y: auto; padding: 24px 20px 20px; display: flex; flex-direction: column; gap: 0; }
     </style>
   </head>
   <body>
@@ -1297,6 +1557,9 @@
           <button class="icon-btn" id="btn-layout-swap" title="左右互换布局">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="7 16 3 12 7 8"/><polyline points="17 8 21 12 17 16"/><line x1="3" y1="12" x2="21" y2="12"/></svg>
           </button>
+          <button class="icon-btn" id="btn-notes-manager" title="笔记管理">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+          </button>
           <button class="icon-btn" id="btn-help" title="使用说明">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r="0.5" fill="currentColor"/></svg>
           </button>
@@ -1338,13 +1601,67 @@
           <div class="panel-section analysis-section">
             <div class="section-header">
               <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-              <span class="section-title">解析</span>
+              <span class="section-title">课件</span>
               <div class="section-header-actions">
+                <button class="section-action-btn" id="btn-export-notes" title="导出全部笔记" style="display:none">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </button>
                 <button class="section-action-btn" data-minimize="analysis" title="最小化">─</button>
               </div>
             </div>
+
+            <div class="panel-tab-bar" id="panel-tab-bar" style="display:none">
+              <button class="panel-tab-btn active" data-tab="analysis">解析</button>
+              <button class="panel-tab-btn" data-tab="notes">笔记</button>
+            </div>
+
             <div class="panel-body" id="analysis-body">
               <div class="panel-welcome"><p>点击「解析」分析当前课件</p></div>
+            </div>
+
+            <div class="notes-panel" id="notes-panel" style="display:none">
+              <div class="notes-toolbar">
+                <input class="notes-title-input" id="notes-title-input" placeholder="输入笔记标题..." autocomplete="off" />
+                <div class="notes-toolbar-btns">
+                  <button class="a-btn" id="btn-import-analysis" title="将AI分析内容追加到笔记">导入分析</button>
+                  <button class="a-btn" id="btn-import-deepthink" title="将深度思考内容追加到笔记">导入深思</button>
+                  <button class="a-btn" id="btn-ai-gen-notes" title="让AI生成结构化学习笔记">✦ AI生成</button>
+                  <div style="flex:1"></div>
+                  <span class="notes-save-status" id="notes-save-status">已保存</span>
+                  <button class="a-btn" id="btn-notes-preview-toggle">预览</button>
+                </div>
+              </div>
+
+              <div class="notes-editor-wrap">
+                <textarea class="notes-editor" id="notes-editor" placeholder="在这里记录笔记，支持 Markdown..."></textarea>
+                <div class="notes-preview prose" id="notes-preview" style="display:none"></div>
+              </div>
+
+              <div class="notes-ai-block" id="notes-ai-block" style="display:none">
+                <div class="notes-ai-header">
+                  <span>✦ AI 生成笔记</span>
+                  <button class="a-btn" id="btn-ai-notes-append">追加到笔记</button>
+                </div>
+                <div class="notes-ai-content prose" id="notes-ai-content"></div>
+              </div>
+
+              <div class="notes-tags-area">
+                <button class="notes-tags-toggle" id="btn-toggle-tags">
+                  <span>标签</span>
+                  <span class="notes-tags-count" id="notes-tags-count" style="display:none">0</span>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="tags-toggle-arrow"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="notes-tags-body" id="notes-tags-body" style="display:none">
+                  <div class="notes-tags-list" id="notes-tags-list"></div>
+                  <input class="notes-tag-input" id="notes-tag-input" placeholder="输入标签后按 Enter 添加..." autocomplete="off" />
+                  <div class="notes-preset-tags">
+                    <button class="notes-preset-tag" data-tag="重要">重要</button>
+                    <button class="notes-preset-tag" data-tag="考点">考点</button>
+                    <button class="notes-preset-tag" data-tag="复习">复习</button>
+                    <button class="notes-preset-tag" data-tag="疑问">疑问</button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1584,6 +1901,77 @@
                 <tr><td>划词</td><td>启用 / 禁用划词翻译工具栏</td></tr>
                 <tr><td>解析</td><td>手动解析当前页面</td></tr>
               </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="notes-manager-modal" style="display:none">
+      <div class="modal-sheet nm-sheet">
+        <div class="modal-head">
+          <h2>笔记管理</h2>
+          <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
+            <button class="btn outline sm" id="btn-nm-export">导出全部</button>
+            <button class="close-btn" id="btn-close-notes-manager">&times;</button>
+          </div>
+        </div>
+        <div class="nm-body">
+          <div class="nm-list-col">
+            <div class="nm-search-wrap">
+              <input class="nm-search-input" id="nm-search" placeholder="搜索标题、内容、标签..." autocomplete="off" />
+            </div>
+            <div id="nm-list-area" class="nm-list-scroll"></div>
+          </div>
+          <div class="nm-detail-col" id="nm-detail-col">
+            <div class="nm-detail-empty" id="nm-detail-empty">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-4)" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <p>选择左侧笔记查看详情</p>
+            </div>
+            <div class="nm-detail-content" id="nm-detail-content" style="display:none">
+              <div class="nm-slide-preview" id="nm-slide-preview" style="display:none">
+                <img id="nm-slide-img" src="" alt="" />
+              </div>
+              <input class="nm-detail-title" id="nm-detail-title" placeholder="笔记标题..." />
+              <div class="nm-section-row">
+                <div class="nm-detail-section-label">手写笔记</div>
+                <button class="a-btn" id="btn-nm-preview-toggle">预览</button>
+              </div>
+              <textarea class="nm-detail-editor" id="nm-detail-editor" placeholder="暂无手写笔记..."></textarea>
+              <div class="nm-detail-preview prose" id="nm-detail-preview" style="display:none"></div>
+              <div id="nm-ai-section" style="display:none">
+                <div class="nm-detail-section-label" style="color:var(--purple)">✦ AI 生成笔记</div>
+                <div class="nm-detail-ai-content prose" id="nm-detail-ai"></div>
+              </div>
+              <div class="nm-detail-tags" id="nm-detail-tags"></div>
+              <div class="nm-detail-foot">
+                <button class="btn primary sm" id="btn-nm-save">保存</button>
+                <button class="btn outline sm" id="btn-nm-del-current">删除此笔记</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="nm-lightbox" id="nm-lightbox" style="display:none">
+          <div class="nm-lb-img-col">
+            <img class="nm-lb-img" id="nm-lb-img" src="" alt="" />
+          </div>
+          <div class="nm-lb-notes-col">
+            <button class="nm-lb-close" id="btn-nm-lb-close">&times;</button>
+            <div class="nm-lb-notes-body">
+              <div class="nm-lb-title" id="nm-lb-title"></div>
+              <div class="nm-lb-toolbar">
+                <div class="nm-lb-section">手写笔记</div>
+                <div style="display:flex;gap:6px">
+                  <button class="a-btn" id="btn-nm-lb-preview-toggle">预览</button>
+                  <button class="btn primary sm" id="btn-nm-lb-save">保存</button>
+                </div>
+              </div>
+              <textarea class="nm-detail-editor" id="nm-lb-editor" placeholder="在这里记录笔记，支持 Markdown..."></textarea>
+              <div class="nm-detail-preview prose" id="nm-lb-preview" style="display:none"></div>
+              <div id="nm-lb-ai-section" style="display:none">
+                <div class="nm-lb-section" style="color:var(--purple);margin-top:14px">✦ AI 生成笔记</div>
+                <div class="nm-detail-ai-content prose" id="nm-lb-ai-content"></div>
+              </div>
             </div>
           </div>
         </div>

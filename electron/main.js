@@ -78,7 +78,24 @@ function waitForServer(retries = 30) {
   });
 }
 
-function startServer() {
+function killExistingServer() {
+  return new Promise((resolve) => {
+    const { exec } = require('child_process');
+    exec('lsof -ti tcp:3000', (err, stdout) => {
+      if (!stdout || !stdout.trim()) return resolve();
+      const pids = stdout.trim().split('\n').filter(Boolean);
+      let pending = pids.length;
+      pids.forEach((pid) => {
+        exec('kill -9 ' + pid.trim(), () => {
+          if (--pending === 0) setTimeout(resolve, 300);
+        });
+      });
+    });
+  });
+}
+
+async function startServer() {
+  await killExistingServer();
   return new Promise((resolve) => {
     const envFile = path.join(appDir, '.env');
     const envDefault = path.join(appDir, '.env.default');
@@ -454,6 +471,10 @@ app.whenReady().then(async () => {
 });
 
 app.on('activate', () => { if (!mainWindow) createWindow(); else mainWindow.show(); });
+process.on('exit', () => {
+  if (serverProcess && !serverProcess.killed) serverProcess.kill();
+});
+
 app.on('before-quit', () => {
   app.isQuitting = true;
   stopYuketangView();

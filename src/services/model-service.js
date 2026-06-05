@@ -76,6 +76,21 @@ const CHAT_SYSTEM_PROMPT = [
   '回答使用 Markdown 格式。'
 ].join('\n');
 
+const NOTES_SYSTEM_PROMPT = [
+  '你是专业的课堂学习笔记整理助手。根据课件内容，生成一份结构清晰的学习笔记。',
+  '不使用 emoji。数学公式使用 LaTeX：行内 $...$ ，独立 $$...$$。',
+  '输出 Markdown，包含：',
+  '## 核心概念',
+  '（列出2-4个最重要的核心概念，每条一行，简洁说明）',
+  '## 重要知识点',
+  '（关键知识点，用简短的要点形式）',
+  '## 记忆技巧',
+  '（帮助记忆的口诀、联想或对比）',
+  '## 可能考点',
+  '（最可能出现在考试中的内容）',
+  '语言简洁，每条不超过两行，突出重点。'
+].join('\n');
+
 
 class RetryableAnalysisError extends Error {
   constructor(message) {
@@ -259,7 +274,7 @@ export class ModelService {
     return acc;
   }
 
-  async _rawStreamingVision({ model, messages, temperature = 0.1, max_tokens = 4096, mode = 'fast' }) {
+  async _rawStreamingVision({ model, messages, temperature = 0.1, max_tokens = 4096, mode = 'fast', onChunk }) {
     const ep = this._getEndpoint(mode);
     if (!ep.key) throw new Error('未配置 API Key');
 
@@ -301,7 +316,7 @@ export class ModelService {
         try {
           const parsed = JSON.parse(data);
           const delta = parsed.choices?.[0]?.delta?.content;
-          if (delta) acc += delta;
+          if (delta) { acc += delta; if (onChunk) onChunk(delta); }
         } catch {}
       }
     }
@@ -379,6 +394,30 @@ export class ModelService {
     });
 
     return text || '无法生成分析。';
+  }
+
+  async generateNotes({ imageUrl, analysisMarkdown, onChunk }) {
+    const userContent = [];
+    if (analysisMarkdown) {
+      userContent.push({ type: 'text', text: `课件分析内容：\n${analysisMarkdown}\n\n请根据以上内容生成学习笔记。` });
+    }
+    if (imageUrl && (/^https?:\/\//i.test(imageUrl) || /^data:/i.test(imageUrl))) {
+      userContent.push({ type: 'image_url', image_url: imageUrl });
+    }
+    if (!userContent.length) {
+      userContent.push({ type: 'text', text: '请根据课件内容生成学习笔记。' });
+    }
+    return this._rawStreamingVision({
+      model: this.getModel('fast'),
+      messages: [
+        { role: 'system', content: NOTES_SYSTEM_PROMPT },
+        { role: 'user', content: userContent }
+      ],
+      temperature: 0.3,
+      max_tokens: 4096,
+      mode: 'fast',
+      onChunk
+    });
   }
 
   async chat({ messages: chatHistory, imageUrl, contextMarkdown, background }) {

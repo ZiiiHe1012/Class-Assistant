@@ -53,7 +53,14 @@
     pdfFiles: [], // [{name, data(Uint8Array)}]
     pdfActiveIndex: -1,
     _pdfObserver: null,
-    chatModel: '' // custom chat model override
+    chatModel: '', // custom chat model override
+    // Notes
+    activeTab: 'analysis',
+    notes: {}, // { [hash]: {manualContent, aiGeneratedContent, tags} }
+    notesSaveTimer: null,
+    notesPreviewMode: false,
+    notesAiLoading: false,
+    notesCurrentHash: null
   };
 
   // ── Background context chips ──
@@ -158,6 +165,7 @@
     renderSlide(focused);
     renderNav(captures, focused);
     renderAnalysis(focused);
+    onCaptureFocus(focused);
 
     // Only sync autoAnalyze from server in online mode
     if (state.appMode === 'online') {
@@ -406,10 +414,20 @@
       var thumbContent = ext === 'pdf'
         ? '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:var(--red-dim)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>'
         : '<img src="' + c.webPath + '" alt="" />';
+      var notesDot = '';
+      if (c.hash && state.snapshot && state.snapshot.status && state.snapshot.status.notesIndex) {
+        var notesIdx = state.snapshot.status.notesIndex;
+        if (notesIdx.indexOf(c.hash) !== -1) {
+          var noteData = state.notes[c.hash];
+          var hasAi = noteData && noteData.aiGeneratedContent;
+          notesDot = '<span class="thumb-notes-dot' + (hasAi ? ' has-ai' : '') + '"></span>';
+        }
+      }
       return '<div class="thumb' + activeClass + '" data-id="' + c.id + '">' +
         thumbContent +
         '<span class="thumb-index">' + (i + 1) + '</span>' +
         statusIndicator +
+        notesDot +
         '</div>';
     }).join('');
   }
@@ -1406,6 +1424,455 @@
     }
   }
 
+  // ── Notes ──
+  function switchTab(tab) {
+    state.activeTab = tab;
+    var analysisBody = $('#analysis-body');
+    var notesPanel = $('#notes-panel');
+    var exportBtn = $('#btn-export-notes');
+    $$('.panel-tab-btn').forEach(function(btn) {
+      btn.classList.toggle('active', btn.dataset.tab === tab);
+    });
+    if (tab === 'notes') {
+      if (analysisBody) analysisBody.style.display = 'none';
+      if (notesPanel) notesPanel.style.display = 'flex';
+      if (exportBtn) exportBtn.style.display = '';
+    } else {
+      if (analysisBody) analysisBody.style.display = '';
+      if (notesPanel) notesPanel.style.display = 'none';
+      if (exportBtn) exportBtn.style.display = 'none';
+    }
+  }
+
+  var _lastFocusedHashForNotes = null;
+
+  function onCaptureFocus(capture) {
+    var tabBar = $('#panel-tab-bar');
+    if (!capture || !capture.hash) {
+      if (tabBar) tabBar.style.display = 'none';
+      _lastFocusedHashForNotes = null;
+      return;
+    }
+    if (tabBar) tabBar.style.display = 'flex';
+    if (capture.hash === _lastFocusedHashForNotes) return;
+    _lastFocusedHashForNotes = capture.hash;
+    state.notesCurrentHash = capture.hash;
+    loadNotes(capture);
+  }
+
+  function loadNotes(capture) {
+    if (!capture || !capture.hash) return;
+    fetch('/api/notes/' + capture.hash)
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (!d.ok) return;
+        var note = d.note;
+        state.notes[capture.hash] = note;
+        if (state.notesCurrentHash !== capture.hash) return;
+        renderNotesEditor(note);
+        renderNotesAiBlock(note);
+        renderTagPills(note.tags || []);
+      })
+      .catch(function() {});
+  }
+
+  function renderNotesEditor(note) {
+    var editor = $('#notes-editor');
+    var preview = $('#notes-preview');
+    var titleInput = $('#notes-title-input');
+    if (editor) editor.value = note.manualContent || '';
+    if (preview) preview.innerHTML = parseMd(note.manualContent || '');
+    if (titleInput) titleInput.value = note.title || '';
+  }
+
+  function renderNotesAiBlock(note) {
+    var block = $('#notes-ai-block');
+    var content = $('#notes-ai-content');
+    if (!block || !content) return;
+    if (note.aiGeneratedContent) {
+      content.innerHTML = parseMd(note.aiGeneratedContent);
+      block.style.display = '';
+    } else {
+      block.style.display = 'none';
+      content.innerHTML = '';
+    }
+  }
+
+  function renderTagPills(tags) {
+    var list = $('#notes-tags-list');
+    if (!list) return;
+    list.innerHTML = tags.map(function(tag, i) {
+      return '<span class="notes-tag-pill">' + esc(tag) +
+        '<span class="notes-tag-pill-del" data-tag-del="' + i + '">&times;</span>' +
+        '</span>';
+    }).join('');
+    var countEl = $('#notes-tags-count');
+    if (countEl) {
+      if (tags.length) {
+        var shown = tags.slice(0, 3).map(function(t) {
+          return '<span class="notes-tag-preview">' + esc(t) + '</span>';
+        }).join('');
+        var more = tags.length > 3 ? '<span class="notes-tag-preview-more">+' + (tags.length - 3) + '</span>' : '';
+        countEl.innerHTML = shown + more;
+        countEl.style.display = 'inline-flex';
+      } else {
+        countEl.innerHTML = '';
+        countEl.style.display = 'none';
+      }
+    }
+  }
+
+  function scheduleNoteSave() {
+    var hash = state.notesCurrentHash;
+    if (!hash) return;
+    clearTimeout(state.notesSaveTimer);
+    state.notesSaveTimer = setTimeout(function() { saveNotes(hash); }, 1500);
+  }
+
+  function saveNotes(hash) {
+    if (!hash) return;
+    var editor = $('#notes-editor');
+    var titleInput = $('#notes-title-input');
+    var manualContent = editor ? editor.value : '';
+    var title = titleInput ? titleInput.value.trim() : '';
+    var note = state.notes[hash] || {};
+    var payload = {
+      manualContent: manualContent,
+      aiGeneratedContent: note.aiGeneratedContent || '',
+      tags: note.tags || [],
+      title: title
+    };
+    state.notes[hash] = Object.assign({}, note, payload);
+    fetch('/api/notes/' + hash, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function() {
+      var statusEl = $('#notes-save-status');
+      if (!statusEl) return;
+      statusEl.classList.add('visible');
+      setTimeout(function() { statusEl.classList.remove('visible'); }, 2000);
+    }).catch(function() {});
+  }
+
+  function importAnalysis() {
+    var hash = state.notesCurrentHash;
+    if (!hash) return;
+    var capture = state.snapshot && state.snapshot.captures.find(function(c) { return c.hash === hash; });
+    if (!capture || !capture.renderedMarkdown) return;
+    var editor = $('#notes-editor');
+    if (!editor) return;
+    var sep = editor.value ? '\n\n---\n\n' : '';
+    editor.value += sep + capture.renderedMarkdown;
+    scheduleNoteSave();
+  }
+
+  function importDeepThink() {
+    var hash = state.notesCurrentHash;
+    if (!hash) return;
+    var capture = state.snapshot && state.snapshot.captures.find(function(c) { return c.hash === hash; });
+    if (!capture || !capture.deepThinkMarkdown) { showToast('尚未生成深度思考内容'); return; }
+    var editor = $('#notes-editor');
+    if (!editor) return;
+    var sep = editor.value ? '\n\n---\n\n' : '';
+    editor.value += sep + capture.deepThinkMarkdown;
+    scheduleNoteSave();
+  }
+
+  function startAiGenNotes() {
+    var hash = state.notesCurrentHash;
+    if (!hash || state.notesAiLoading) return;
+    var capture = state.snapshot && state.snapshot.captures.find(function(c) { return c.hash === hash; });
+    state.notesAiLoading = true;
+    var genBtn = $('#btn-ai-gen-notes');
+    if (genBtn) { genBtn.textContent = '生成中...'; genBtn.classList.add('loading'); }
+
+    var block = $('#notes-ai-block');
+    var content = $('#notes-ai-content');
+    if (block) block.style.display = '';
+    if (content) content.innerHTML = '<span style="color:var(--text-3);font-size:11px">AI 正在生成学习笔记...</span>';
+
+    var accumulated = '';
+    fetchStream(
+      '/api/notes/' + hash + '/ai-generate',
+      null,
+      function(chunk) {
+        accumulated += chunk;
+        if (content) content.innerHTML = parseMd(accumulated);
+      },
+      function() {
+        state.notesAiLoading = false;
+        if (genBtn) { genBtn.textContent = '✦ AI生成'; genBtn.classList.remove('loading'); }
+        if (!state.notes[hash]) state.notes[hash] = {};
+        state.notes[hash].aiGeneratedContent = accumulated;
+      },
+      function(err) {
+        state.notesAiLoading = false;
+        if (genBtn) { genBtn.textContent = '✦ AI生成'; genBtn.classList.remove('loading'); }
+        if (content) content.innerHTML = '<span style="color:var(--red);font-size:11px">生成失败: ' + esc(err) + '</span>';
+      }
+    );
+  }
+
+  function appendAiToEditor() {
+    var hash = state.notesCurrentHash;
+    if (!hash) return;
+    var note = state.notes[hash];
+    if (!note || !note.aiGeneratedContent) return;
+    var editor = $('#notes-editor');
+    if (!editor) return;
+    var sep = editor.value ? '\n\n---\n\n' : '';
+    editor.value += sep + note.aiGeneratedContent;
+    scheduleNoteSave();
+  }
+
+  function addNoteTag(tag) {
+    var hash = state.notesCurrentHash;
+    if (!hash || !tag) return;
+    if (!state.notes[hash]) state.notes[hash] = { tags: [] };
+    if (!state.notes[hash].tags) state.notes[hash].tags = [];
+    tag = tag.trim();
+    if (!tag || state.notes[hash].tags.indexOf(tag) !== -1) return;
+    state.notes[hash].tags.push(tag);
+    renderTagPills(state.notes[hash].tags);
+    saveNotes(hash);
+  }
+
+  function removeNoteTag(idx) {
+    var hash = state.notesCurrentHash;
+    if (!hash) return;
+    var note = state.notes[hash];
+    if (!note || !note.tags) return;
+    note.tags.splice(idx, 1);
+    renderTagPills(note.tags);
+    saveNotes(hash);
+  }
+
+  function exportNotes() {
+    var a = document.createElement('a');
+    a.href = '/api/notes/export';
+    a.download = 'notes.md';
+    a.click();
+  }
+
+  function toggleNotesPreview() {
+    var editor = $('#notes-editor');
+    var preview = $('#notes-preview');
+    var btn = $('#btn-notes-preview-toggle');
+    if (!editor || !preview) return;
+    state.notesPreviewMode = !state.notesPreviewMode;
+    if (state.notesPreviewMode) {
+      preview.innerHTML = parseMd(editor.value || '');
+      editor.style.display = 'none';
+      preview.style.display = '';
+      if (btn) btn.textContent = '编辑';
+    } else {
+      editor.style.display = '';
+      preview.style.display = 'none';
+      if (btn) btn.textContent = '预览';
+    }
+  }
+
+  function initNotesHandlers() {
+    var editor = $('#notes-editor');
+    if (editor) {
+      editor.addEventListener('input', function() { scheduleNoteSave(); });
+    }
+    var tagInput = $('#notes-tag-input');
+    if (tagInput) {
+      tagInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          var val = this.value.trim();
+          if (val) { addNoteTag(val); this.value = ''; }
+        }
+      });
+    }
+    var nmSearch = $('#nm-search');
+    if (nmSearch) {
+      nmSearch.addEventListener('input', function() {
+        renderNotesList(nmAllNotes, this.value);
+      });
+    }
+    var titleInput = $('#notes-title-input');
+    if (titleInput) {
+      titleInput.addEventListener('input', function() { scheduleNoteSave(); });
+    }
+  }
+
+  // ── Notes Manager ──
+  var nmAllNotes = [];
+
+  function openNotesManager() {
+    pauseYuketangView();
+    var modal = $('#notes-manager-modal');
+    if (modal) modal.style.display = '';
+    var search = $('#nm-search');
+    if (search) search.value = '';
+    loadAllNotes();
+  }
+
+  function closeNotesManager() {
+    var modal = $('#notes-manager-modal');
+    if (modal) modal.style.display = 'none';
+    resumeYuketangView();
+  }
+
+  function loadAllNotes() {
+    var area = $('#nm-list-area');
+    if (area) area.innerHTML = '<div class="nm-empty">加载中...</div>';
+    fetch('/api/notes')
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (!d.ok) throw new Error(d.error || '加载失败');
+        nmAllNotes = d.notes || [];
+        var q = ($('#nm-search') || {}).value || '';
+        renderNotesList(nmAllNotes, q);
+      })
+      .catch(function(e) {
+        var area = $('#nm-list-area');
+        if (area) area.innerHTML = '<div class="nm-empty">加载失败: ' + esc(e.message) + '</div>';
+      });
+  }
+
+  function renderNotesList(notes, query) {
+    var area = $('#nm-list-area');
+    if (!area) return;
+    query = (query || '').trim().toLowerCase();
+
+    var filtered = query ? notes.filter(function(n) {
+      return (n.title || '').toLowerCase().indexOf(query) !== -1
+        || (n.manualContent || '').toLowerCase().indexOf(query) !== -1
+        || (n.aiGeneratedContent || '').toLowerCase().indexOf(query) !== -1
+        || (n.tags || []).some(function(t) { return t.toLowerCase().indexOf(query) !== -1; });
+    }) : notes;
+
+    if (!filtered.length) {
+      area.innerHTML = '<div class="nm-empty">' + (query ? '没有匹配的笔记' : '还没有笔记，去课件页面开始记录吧') + '</div>';
+      return;
+    }
+
+    var activeHash = (($('#nm-detail-content') || {}).dataset || {}).hash || '';
+
+    area.innerHTML = filtered.map(function(note) {
+      var rawTitle = note.title || '（无标题）';
+      var titleHtml = query ? nmHighlight(rawTitle, query) : esc(rawTitle);
+      var date = note.updatedAt ? new Date(note.updatedAt).toLocaleDateString('zh-CN') : '';
+      var tagsHtml = (note.tags || []).map(function(t) {
+        return '<span class="kp" style="font-size:9px;padding:1px 6px">' + esc(t) + '</span>';
+      }).join('');
+      var aiDot = note.aiGeneratedContent ? '<span class="tag green" style="font-size:9px">AI</span>' : '';
+      var thumbHtml = note.webPath
+        ? '<img class="nm-card-thumb" src="' + esc(note.webPath) + '" alt="" />'
+        : '<div class="nm-card-thumb" style="display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-4)" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/></svg></div>';
+      var activeClass = note.hash === activeHash ? ' active' : '';
+      return '<div class="nm-card' + activeClass + '" data-nm-hash="' + esc(note.hash) + '">' +
+        thumbHtml +
+        '<div class="nm-card-title">' + titleHtml + '</div>' +
+        '<div class="nm-card-meta">' + esc(date) + (aiDot ? ' &nbsp;' + aiDot : '') + '</div>' +
+        (tagsHtml ? '<div class="nm-card-tags-row">' + tagsHtml + '</div>' : '') +
+      '</div>';
+    }).join('');
+  }
+
+  function selectNoteInManager(note) {
+    // 切换笔记时重置预览状态
+    var nmEd = $('#nm-detail-editor');
+    var nmPrev = $('#nm-detail-preview');
+    var nmPBtn = $('#btn-nm-preview-toggle');
+    if (nmEd) nmEd.style.display = '';
+    if (nmPrev) nmPrev.style.display = 'none';
+    if (nmPBtn) nmPBtn.textContent = '预览';
+
+    $$('.nm-card').forEach(function(c) { c.classList.remove('active'); });
+    var card = document.querySelector('[data-nm-hash="' + note.hash + '"]');
+    if (card) card.classList.add('active');
+
+    $('#nm-detail-empty').style.display = 'none';
+    var detailContent = $('#nm-detail-content');
+    detailContent.style.display = 'flex';
+    detailContent.dataset.hash = note.hash;
+
+    var slidePreview = $('#nm-slide-preview');
+    var slideImg = $('#nm-slide-img');
+    if (note.webPath) {
+      slideImg.src = note.webPath;
+      slidePreview.style.display = '';
+    } else {
+      slidePreview.style.display = 'none';
+    }
+
+    $('#nm-detail-title').value = note.title || '';
+    $('#nm-detail-editor').value = note.manualContent || '';
+
+    var aiSection = $('#nm-ai-section');
+    var aiContent = $('#nm-detail-ai');
+    if (note.aiGeneratedContent) {
+      aiContent.innerHTML = parseMd(note.aiGeneratedContent);
+      aiSection.style.display = '';
+    } else {
+      aiSection.style.display = 'none';
+    }
+
+    var tagsDiv = $('#nm-detail-tags');
+    tagsDiv.innerHTML = (note.tags || []).map(function(t) {
+      return '<span class="kp">' + esc(t) + '</span>';
+    }).join('');
+  }
+
+  function saveNoteInManager() {
+    var content = $('#nm-detail-content');
+    if (!content) return;
+    var hash = content.dataset.hash;
+    if (!hash) return;
+    var title = ($('#nm-detail-title') || {}).value || '';
+    var manualContent = ($('#nm-detail-editor') || {}).value || '';
+    var note = nmAllNotes.find(function(n) { return n.hash === hash; }) || {};
+    fetch('/api/notes/' + hash, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: title,
+        manualContent: manualContent,
+        aiGeneratedContent: note.aiGeneratedContent || '',
+        tags: note.tags || []
+      })
+    }).then(function() {
+      showToast('笔记已保存');
+      var idx = nmAllNotes.findIndex(function(n) { return n.hash === hash; });
+      if (idx !== -1) { nmAllNotes[idx].title = title; nmAllNotes[idx].manualContent = manualContent; }
+      renderNotesList(nmAllNotes, ($('#nm-search') || {}).value || '');
+    }).catch(function(e) { showToast('保存失败: ' + e.message); });
+  }
+
+  function deleteCurrentNoteInManager() {
+    var content = $('#nm-detail-content');
+    if (!content) return;
+    var hash = content.dataset.hash;
+    if (!hash || !confirm('确认删除这条笔记？删除后无法恢复。')) return;
+    fetch('/api/notes/' + hash, { method: 'DELETE' })
+      .then(function() {
+        $('#nm-detail-empty').style.display = '';
+        $('#nm-detail-content').style.display = 'none';
+        loadAllNotes();
+      })
+      .catch(function(e) { showToast('删除失败: ' + e.message); });
+  }
+
+  function nmHighlight(text, query) {
+    if (!query) return esc(text);
+    var escaped = esc(text);
+    var safeQ = esc(query).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return escaped.replace(new RegExp('(' + safeQ + ')', 'gi'), '<mark class="nm-highlight">$1</mark>');
+  }
+
+  function deleteNoteFromManager(hash) {
+    if (!confirm('确认删除这条笔记？删除后无法恢复。')) return;
+    fetch('/api/notes/' + hash, { method: 'DELETE' })
+      .then(function() { loadAllNotes(); })
+      .catch(function(e) { showToast('删除失败: ' + e.message); });
+  }
+
   // ── Panel resize ──
   function initPanelResize() {
     var handle = $('#panel-resize-handle');
@@ -1808,6 +2275,141 @@
       toggleMinimize(minBtn.dataset.minimize);
       return;
     }
+
+    // Notes tab switching
+    var tabBtn = t.closest('.panel-tab-btn');
+    if (tabBtn && tabBtn.dataset.tab) {
+      switchTab(tabBtn.dataset.tab);
+      return;
+    }
+
+    // Notes toolbar buttons
+    if (t.closest('#btn-import-analysis')) { importAnalysis(); return; }
+    if (t.closest('#btn-import-deepthink')) { importDeepThink(); return; }
+    if (t.closest('#btn-ai-gen-notes')) { startAiGenNotes(); return; }
+    if (t.closest('#btn-notes-preview-toggle')) { toggleNotesPreview(); return; }
+    if (t.closest('#btn-ai-notes-append')) { appendAiToEditor(); return; }
+    if (t.closest('#btn-export-notes') || t.closest('#btn-export-notes-inline')) { exportNotes(); return; }
+
+    // Notes tag delete
+    var tagDel = t.closest('[data-tag-del]');
+    if (tagDel) { removeNoteTag(parseInt(tagDel.dataset.tagDel, 10)); return; }
+
+    // Notes manager
+    if (t.closest('#btn-notes-manager')) { openNotesManager(); return; }
+    if (t.closest('#btn-close-notes-manager')) { closeNotesManager(); return; }
+    if (t.closest('#btn-nm-lb-close')) { var lb = $('#nm-lightbox'); if (lb) lb.style.display = 'none'; return; }
+    if (t.closest('#btn-nm-lb-preview-toggle')) {
+      var lbEd = $('#nm-lb-editor');
+      var lbPrev = $('#nm-lb-preview');
+      var lbBtn = $('#btn-nm-lb-preview-toggle');
+      var lbIsPreview = lbEd && lbEd.style.display === 'none';
+      if (lbIsPreview) {
+        lbEd.style.display = ''; lbPrev.style.display = 'none'; lbBtn.textContent = '预览';
+      } else {
+        lbPrev.innerHTML = parseMd(lbEd ? lbEd.value : '');
+        lbEd.style.display = 'none'; lbPrev.style.display = ''; lbBtn.textContent = '编辑';
+      }
+      return;
+    }
+    if (t.closest('#btn-nm-lb-save')) {
+      var lbHash = (($('#nm-detail-content') || {}).dataset || {}).hash;
+      if (!lbHash) return;
+      var lbContent = ($('#nm-lb-editor') || {}).value || '';
+      var mainEd = $('#nm-detail-editor');
+      if (mainEd) mainEd.value = lbContent;
+      var lbIdx = nmAllNotes.findIndex(function(n) { return n.hash === lbHash; });
+      var lbNote = lbIdx !== -1 ? nmAllNotes[lbIdx] : {};
+      if (lbIdx !== -1) nmAllNotes[lbIdx].manualContent = lbContent;
+      fetch('/api/notes/' + lbHash, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: lbNote.title || '',
+          manualContent: lbContent,
+          aiGeneratedContent: lbNote.aiGeneratedContent || '',
+          tags: lbNote.tags || []
+        })
+      }).then(function() {
+        showToast('笔记已保存');
+        renderNotesList(nmAllNotes, ($('#nm-search') || {}).value || '');
+      }).catch(function(e) { showToast('保存失败: ' + e.message); });
+      return;
+    }
+    if (t.id === 'nm-slide-img' || t.closest('#nm-slide-img')) {
+      var note = nmAllNotes.find(function(n) {
+        return n.hash === (($('#nm-detail-content') || {}).dataset || {}).hash;
+      });
+      var lb = $('#nm-lightbox');
+      var lbImg = $('#nm-lb-img');
+      if (!lb || !lbImg) return;
+      lbImg.src = ($('#nm-slide-img') || {}).src || '';
+      // 填充静态元素
+      var lbTitleEl = $('#nm-lb-title');
+      var lbEdEl = $('#nm-lb-editor');
+      var lbPrevEl = $('#nm-lb-preview');
+      var lbPrevBtn = $('#btn-nm-lb-preview-toggle');
+      var lbAiSec = $('#nm-lb-ai-section');
+      var lbAiContent = $('#nm-lb-ai-content');
+      if (lbTitleEl) lbTitleEl.textContent = (note && note.title) || '';
+      if (lbEdEl) lbEdEl.value = (note && note.manualContent) || '';
+      if (lbPrevEl) lbPrevEl.style.display = 'none';
+      if (lbEdEl) lbEdEl.style.display = '';
+      if (lbPrevBtn) lbPrevBtn.textContent = '预览';
+      if (lbAiSec) {
+        if (note && note.aiGeneratedContent) {
+          if (lbAiContent) lbAiContent.innerHTML = parseMd(note.aiGeneratedContent);
+          lbAiSec.style.display = '';
+        } else {
+          lbAiSec.style.display = 'none';
+        }
+      }
+      lb.style.display = 'flex';
+      return;
+    }
+    if (t.closest('#btn-nm-export')) { exportNotes(); return; }
+    if (t.closest('#btn-nm-preview-toggle')) {
+      var nmEd = $('#nm-detail-editor');
+      var nmPrev = $('#nm-detail-preview');
+      var nmPrevBtn = $('#btn-nm-preview-toggle');
+      var isPreview = nmEd && nmEd.style.display === 'none';
+      if (isPreview) {
+        nmEd.style.display = '';
+        nmPrev.style.display = 'none';
+        nmPrevBtn.textContent = '预览';
+      } else {
+        nmPrev.innerHTML = parseMd(nmEd ? nmEd.value : '');
+        nmEd.style.display = 'none';
+        nmPrev.style.display = '';
+        nmPrevBtn.textContent = '编辑';
+      }
+      return;
+    }
+    if (t.closest('#btn-nm-save')) { saveNoteInManager(); return; }
+    if (t.closest('#btn-nm-del-current')) { deleteCurrentNoteInManager(); return; }
+    if (t.id === 'notes-manager-modal') { closeNotesManager(); return; }
+    var nmCard = t.closest('.nm-card[data-nm-hash]');
+    if (nmCard) {
+      var nmNote = nmAllNotes.find(function(n) { return n.hash === nmCard.dataset.nmHash; });
+      if (nmNote) selectNoteInManager(nmNote);
+      return;
+    }
+    var nmDel = t.closest('[data-nm-del]');
+    if (nmDel) { deleteNoteFromManager(nmDel.dataset.nmDel); return; }
+
+    // Tags area toggle
+    if (t.closest('#btn-toggle-tags')) {
+      var tagsArea = t.closest('.notes-tags-area');
+      var tagsBody = $('#notes-tags-body');
+      var isOpen = tagsArea && tagsArea.classList.contains('open');
+      if (tagsArea) tagsArea.classList.toggle('open', !isOpen);
+      if (tagsBody) tagsBody.style.display = isOpen ? 'none' : '';
+      return;
+    }
+
+    // Preset tag click
+    var presetTag = t.closest('.notes-preset-tag');
+    if (presetTag && presetTag.dataset.tag) { addNoteTag(presetTag.dataset.tag); return; }
 
     // Model chip click in settings
     var modelChip = t.closest('.model-chip');
@@ -2808,6 +3410,7 @@
     initWheelNavigation();
     initDragDrop();
     initTextSelection();
+    initNotesHandlers();
 
     if (mode === 'online') {
       var onlineBar = $('#online-bar');
@@ -2844,12 +3447,18 @@
   function syncViewBounds() {
     if (!isElectron || !state._ykViewVisible) return;
     var stage = document.querySelector('.slide-stage');
+    var panel = document.getElementById('side-panel');
     if (!stage) return;
     var rect = stage.getBoundingClientRect();
+    // Hard-cap the right edge at the side-panel's left edge so the BrowserView
+    // never overlaps the notes/analysis panel regardless of rounding or resize timing.
+    var maxRight = panel
+      ? Math.round(panel.getBoundingClientRect().left)
+      : Math.round(rect.right);
     window.electronAPI.setViewBounds({
       x: Math.round(rect.left),
       y: Math.round(rect.top),
-      width: Math.round(rect.width),
+      width: maxRight - Math.round(rect.left),
       height: Math.round(rect.height)
     });
   }

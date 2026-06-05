@@ -18,7 +18,8 @@ export class AppState {
         processedCount: 0,
         failedCount: 0,
         autoAnalyze: false,
-        analyzeMode: 'fast'
+        analyzeMode: 'fast',
+        notesIndex: []
       },
       captures: [],
       logs: []
@@ -93,5 +94,10 @@ export class AppState {
 
   findCapture(id) {
     return this.state.captures.find((item) => item.id === id) || null;
+  }
+
+  setNotesIndex(hashes) {
+    this.state.status.notesIndex = hashes;
+    this.broadcast();
   }
 }

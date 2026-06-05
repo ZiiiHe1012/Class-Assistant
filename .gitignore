@@ -4,6 +4,8 @@ data/browser/*
 !data/browser/.gitkeep
 data/captures/*
 !data/captures/.gitkeep
+data/notes/*
+!data/notes/.gitkeep
 dist/
 *.exe
 npm-debug.log*

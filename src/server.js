@@ -11,12 +11,19 @@ import { config } from './config.js';
 import { CapturePipeline } from './services/capture-pipeline.js';
 import { ModelService } from './services/model-service.js';
 import { MonitorService } from './services/monitor-service.js';
+import { NotesService } from './services/notes-service.js';
 import { ocrImage } from './services/ocr-service.js';
+
+
+
+
+const notesDir = path.join(config.rootDir, 'data', 'notes');
 
 async function ensureDirectories() {
   await fs.mkdir(config.captureDir, { recursive: true });
   await fs.mkdir(path.join(config.captureDir, 'uploads'), { recursive: true });
   await fs.mkdir(config.browserDataDir, { recursive: true });
+  await fs.mkdir(notesDir, { recursive: true });
 }
 
 async function main() {
@@ -26,8 +33,12 @@ async function main() {
   const server = http.createServer(app);
   const state = new AppState(config);
   const modelService = new ModelService(config);
+  const notesService = new NotesService(notesDir, modelService);
   const capturePipeline = new CapturePipeline(config, state, modelService);
   const monitorService = new MonitorService(config, state, capturePipeline);
+
+  // Load notesIndex so the frontend can show note indicators on thumbnails
+  notesService.listHashes().then((hashes) => state.setNotesIndex(hashes)).catch(() => {});
 
   app.use(express.json({ limit: '25mb' }));
   app.use(express.static(config.publicDir));
@@ -519,6 +530,106 @@ async function main() {
     }
     state.setStatus({ browserState: 'disabled' });
     res.json({ ok: true });
+  });
+
+  // ── Notes API (export must be before /:hash to avoid Express routing it as a hash) ──
+  app.get('/api/notes/export', async (_req, res) => {
+    try {
+      const markdown = await notesService.exportAll(state.state.captures);
+      res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename="notes.md"');
+      res.send(markdown);
+    } catch (error) {
+      res.status(500).json({ ok: false, error: error.message });
+    }
+  });
+
+  app.get('/api/notes', async (_req, res) => {
+    try {
+      const notes = await notesService.getAll();
+      const enriched = notes.map((note) => {
+        const cap = state.state.captures.find((c) => c.hash === note.hash);
+        return { ...note, webPath: cap?.webPath || null };
+      });
+      res.json({ ok: true, notes: enriched });
+    } catch (error) {
+      res.status(500).json({ ok: false, error: error.message });
+    }
+  });
+
+  app.get('/api/notes/:hash', async (req, res) => {
+    try {
+      const note = await notesService.get(req.params.hash);
+      res.json({ ok: true, note });
+    } catch (error) {
+      res.status(500).json({ ok: false, error: error.message });
+    }
+  });
+
+  app.post('/api/notes/:hash', async (req, res) => {
+    const { hash } = req.params;
+    const { manualContent, aiGeneratedContent, tags, title } = req.body;
+    try {
+      const note = await notesService.save(hash, { manualContent, aiGeneratedContent, tags, title });
+      // Keep notesIndex fresh so thumbnails update
+      const hashes = await notesService.listHashes();
+      state.setNotesIndex(hashes);
+      res.json({ ok: true, note });
+    } catch (error) {
+      res.status(500).json({ ok: false, error: error.message });
+    }
+  });
+
+  app.delete('/api/notes/:hash', async (req, res) => {
+    try {
+      await notesService.delete(req.params.hash);
+      const hashes = await notesService.listHashes();
+      state.setNotesIndex(hashes);
+      res.json({ ok: true });
+    } catch (error) {
+      res.status(500).json({ ok: false, error: error.message });
+    }
+  });
+
+  app.post('/api/notes/:hash/ai-generate', async (req, res) => {
+    const { hash } = req.params;
+    const capture = state.state.captures.find((c) => c.hash === hash);
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    try {
+      let imageUrl = null;
+      if (capture?.fileName) {
+        try {
+          const filePath = path.join(config.captureDir, capture.fileName);
+          const fileBuffer = await fs.readFile(filePath);
+          const ext = path.extname(capture.fileName).toLowerCase();
+          const mime = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
+          imageUrl = `data:${mime};base64,${fileBuffer.toString('base64')}`;
+        } catch (_) {}
+      }
+
+      let fullText = '';
+      await notesService.generateNotesStream(hash, imageUrl, capture?.renderedMarkdown || '', (chunk) => {
+        res.write(`data: ${JSON.stringify({ t: chunk })}\n\n`);
+        fullText += chunk;
+      });
+
+      // Persist the generated AI notes
+      if (fullText) {
+        await notesService.save(hash, { aiGeneratedContent: fullText, title: capture?.title || '' });
+        const hashes = await notesService.listHashes();
+        state.setNotesIndex(hashes);
+      }
+
+      res.write('data: [DONE]\n\n');
+      res.end();
+    } catch (error) {
+      res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+      res.end();
+    }
   });
 
   app.get('*', (_req, res) => {
