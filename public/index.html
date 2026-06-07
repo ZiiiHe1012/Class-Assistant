@@ -874,7 +874,7 @@
       /* Settings */
       .field { margin-bottom: 14px; }
       .field label { display: block; font-size: 11px; font-weight: 700; color: var(--text-1); margin-bottom: 6px; letter-spacing: -0.01em; }
-      .field input, .field select {
+      .field input, .field select, .field textarea {
         width: 100%; padding: 9px 12px;
         border: 1px solid var(--border);
         border-radius: var(--r-sm);
@@ -882,7 +882,8 @@
         font-size: 12px; outline: none; font-family: var(--sans);
         transition: all 0.15s;
       }
-      .field input:focus, .field select:focus { border-color: var(--accent); background: var(--surface); box-shadow: 0 0 0 3px var(--accent-soft); }
+      .field textarea { min-height: 140px; resize: vertical; line-height: 1.65; }
+      .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); background: var(--surface); box-shadow: 0 0 0 3px var(--accent-soft); }
       .field small { display: block; margin-top: 5px; font-size: 10px; color: var(--text-3); }
       .field-row { display: flex; gap: 12px; }
       .field-row .field { flex: 1; }
@@ -1761,6 +1762,23 @@
                 <label for="cfg-model-deep">深度模型</label>
                 <input id="cfg-model-deep" type="text" placeholder="claude-sonnet-4-6" />
               </div>
+            </div>
+            <hr style="border:none;border-top:1px solid var(--border-light);margin:16px 0" />
+            <div class="field" style="margin-bottom:6px">
+              <label style="font-size:13px;font-weight:700;color:var(--text-1)">GUI Agent</label>
+            </div>
+            <div class="field">
+              <label class="checkbox-item"><input type="checkbox" id="cfg-gui-agent-enabled" /> 启用题目答案后的 GUI Agent 调用</label>
+              <small>开启后，识别到选择题 / 填空题 / 主观题并生成答案后，会自动按 OpenAI Computer Use 风格调用 GUI agent。</small>
+            </div>
+            <div class="field">
+              <label for="cfg-gui-agent-model">GUI Agent 模型</label>
+              <input id="cfg-gui-agent-model" type="text" placeholder="gpt-5.3-codex" />
+            </div>
+            <div class="field">
+              <label for="cfg-gui-agent-prompt">GUI Agent 请求模板</label>
+              <textarea id="cfg-gui-agent-prompt" placeholder="在这里填写 GUI agent 请求模板...&#10;支持 {{questionStem}}、{{answers}}、{{explanation}} 等变量"></textarea>
+              <small>支持变量：{{categoryName}} / {{questionStem}} / {{answers}} / {{blankAnswers}} / {{sampleAnswer}} / {{explanation}} / {{knowledgePoints}} / {{ocrText}} / {{renderedMarkdown}}</small>
             </div>
             <hr style="border:none;border-top:1px solid var(--border-light);margin:16px 0" />
             <div class="field" style="margin-bottom:6px">

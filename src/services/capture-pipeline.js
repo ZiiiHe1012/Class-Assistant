@@ -34,10 +34,11 @@ function getErrorMessage(error) {
 }
 
 export class CapturePipeline {
-  constructor(config, state, modelService) {
+  constructor(config, state, modelService, guiAgentService = null) {
     this.config = config;
     this.state = state;
     this.modelService = modelService;
+    this.guiAgentService = guiAgentService;
     this.queue = [];
     this.processing = false;
     this.seenHashes = new Map();
@@ -130,6 +131,11 @@ export class CapturePipeline {
         deepThinkStatus: '',
         deepThinkMarkdown: '',
         deepThinkHtml: '',
+        guiAgentStatus: '',
+        guiAgentRequest: '',
+        guiAgentResponse: '',
+        guiAgentError: '',
+        guiAgentTriggeredAt: '',
         error: '',
         attemptCount: 0,
         maxAttempts: this.config.analysisMaxAttempts,
@@ -199,6 +205,11 @@ export class CapturePipeline {
       deepThinkStatus: '',
       deepThinkMarkdown: '',
       deepThinkHtml: '',
+      guiAgentStatus: '',
+      guiAgentRequest: '',
+      guiAgentResponse: '',
+      guiAgentError: '',
+      guiAgentTriggeredAt: '',
       error: '',
       attemptCount: 0,
       maxAttempts: this.config.analysisMaxAttempts,
@@ -285,6 +296,10 @@ export class CapturePipeline {
           ...result
         });
         this.state.setStatus({ processedCount: nextProcessedCount });
+
+        if (this.guiAgentService && [2, 3, 4].includes(Number(result.categoryId))) {
+          void this.guiAgentService.runForCapture(task.id);
+        }
       } catch (error) {
         const errorMessage = getErrorMessage(error);
 

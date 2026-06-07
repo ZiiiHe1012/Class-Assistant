@@ -9,6 +9,7 @@ import open from 'open';
 import { AppState } from './app-state.js';
 import { config } from './config.js';
 import { CapturePipeline } from './services/capture-pipeline.js';
+import { GuiAgentService } from './services/gui-agent-service.js';
 import { ModelService } from './services/model-service.js';
 import { MonitorService } from './services/monitor-service.js';
 import { NotesService } from './services/notes-service.js';
@@ -34,8 +35,12 @@ async function main() {
   const state = new AppState(config);
   const modelService = new ModelService(config);
   const notesService = new NotesService(notesDir, modelService);
-  const capturePipeline = new CapturePipeline(config, state, modelService);
+  const guiAgentService = new GuiAgentService(config, state);
+  const capturePipeline = new CapturePipeline(config, state, modelService, guiAgentService);
   const monitorService = new MonitorService(config, state, capturePipeline);
+  if (process.env.ELECTRON !== '1') {
+    guiAgentService.setActionExecutor((command) => monitorService.submitAnswer(command));
+  }
 
   // Load notesIndex so the frontend can show note indicators on thumbnails
   notesService.listHashes().then((hashes) => state.setNotesIndex(hashes)).catch(() => {});
@@ -195,6 +200,28 @@ async function main() {
     }
   });
 
+  app.post('/api/gui-agent/run', async (req, res) => {
+    const { captureId } = req.body || {};
+    if (!captureId) return res.status(400).json({ ok: false, error: 'Missing captureId' });
+    try {
+      const result = await guiAgentService.runForCapture(captureId);
+      res.json({ ok: true, result });
+    } catch (error) {
+      res.status(500).json({ ok: false, error: error.message });
+    }
+  });
+
+  app.get('/api/gui-agent/next-command', (_req, res) => {
+    const command = guiAgentService.takeNextCommand();
+    res.json({ ok: true, command });
+  });
+
+  app.post('/api/gui-agent/command-result', async (req, res) => {
+    const { commandId, ...result } = req.body || {};
+    await guiAgentService.markCommandResult(commandId, result);
+    res.json({ ok: true });
+  });
+
   app.post('/api/relogin', async (_req, res) => {
     try {
       await monitorService.relogin();
@@ -250,11 +277,15 @@ async function main() {
 
   app.get('/api/config', (_req, res) => {
     const mask = (k) => k && k.length >= 8 ? k.slice(0, 5) + '...' + k.slice(-4) : (k ? '****' : '');
+    const guiAgentSettings = guiAgentService.getSettings();
     res.json({
       baseUrl: config.openaiBaseUrl,
       model: config.openaiModel,
       modelFast: config.openaiModelFast,
       modelDeep: config.openaiModelDeep,
+      guiAgentEnabled: guiAgentSettings.enabled,
+      guiAgentModel: guiAgentSettings.model,
+      guiAgentPromptTemplate: guiAgentSettings.promptTemplate,
       translateModel: config.translateModel,
       translateBaseUrl: config.translateBaseUrl,
       hasKey: Boolean(config.openaiApiKey),
@@ -281,7 +312,7 @@ async function main() {
   });
 
   app.post('/api/config', async (req, res) => {
-    const { baseUrl, apiKey, apiKeyFast, model, modelFast, modelDeep, translateApiKey, translateBaseUrl, translateModel } = req.body;
+    const { baseUrl, apiKey, apiKeyFast, model, modelFast, modelDeep, guiAgentEnabled, guiAgentModel, guiAgentPromptTemplate, translateApiKey, translateBaseUrl, translateModel } = req.body;
     try {
       const envPath = path.join(config.rootDir, '.env');
       let envContent = await fs.readFile(envPath, 'utf-8').catch(() => '');
@@ -302,11 +333,22 @@ async function main() {
       upsert('OPENAI_MODEL', model);
       upsert('OPENAI_MODEL_FAST', modelFast);
       upsert('OPENAI_MODEL_DEEP', modelDeep);
+      if (guiAgentEnabled !== undefined) upsert('GUI_AGENT_ENABLED', guiAgentEnabled ? 'true' : 'false');
+      upsert('GUI_AGENT_MODEL', guiAgentModel);
+      if (guiAgentPromptTemplate !== undefined) upsert('GUI_AGENT_PROMPT_TEMPLATE', JSON.stringify(String(guiAgentPromptTemplate)).slice(1, -1));
       if (translateApiKey && translateApiKey !== '') upsert('TRANSLATE_API_KEY', translateApiKey);
       upsert('TRANSLATE_BASE_URL', translateBaseUrl);
       upsert('TRANSLATE_MODEL', translateModel);
 
       await fs.writeFile(envPath, envContent.trim() + '\n', 'utf-8');
+
+      guiAgentService.updateSettings({
+        enabled: guiAgentEnabled,
+        apiKey: apiKey,
+        baseUrl: baseUrl,
+        model: guiAgentModel,
+        promptTemplate: guiAgentPromptTemplate
+      });
 
       res.json({ ok: true, message: '配置已保存，重启后生效。' });
     } catch (error) {

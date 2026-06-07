@@ -11,6 +11,7 @@ let yuketangWindow = null;
 let tray = null;
 let serverProcess = null;
 let scanTimer = null;
+let guiAgentPollTimer = null;
 let captureReady = false;
 let inClassroom = false;
 let networkInterceptActive = false;
@@ -459,12 +460,516 @@ function postToServer(path, data) {
   req.end();
 }
 
+function requestJson(path, data) {
+  return new Promise((resolve, reject) => {
+    const body = data ? JSON.stringify(data) : '';
+    const req = http.request({
+      hostname: '127.0.0.1',
+      port: PORT,
+      path,
+      method: data ? 'POST' : 'GET',
+      headers: data ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } : {}
+    }, (res) => {
+      const chunks = [];
+      res.on('data', (chunk) => chunks.push(chunk));
+      res.on('end', () => {
+        try {
+          const text = Buffer.concat(chunks).toString('utf8');
+          resolve(text ? JSON.parse(text) : {});
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
+    req.on('error', reject);
+    if (body) req.write(body);
+    req.end();
+  });
+}
+
+function startGuiAgentPolling() {
+  if (guiAgentPollTimer) return;
+  guiAgentPollTimer = setInterval(() => {
+    pollGuiAgentCommand().catch(() => {});
+  }, 1200);
+}
+
+async function pollGuiAgentCommand() {
+  if (!yuketangView || yuketangView.webContents.isDestroyed()) return;
+  const payload = await requestJson('/api/gui-agent/next-command');
+  const command = payload && payload.command;
+  if (!command) return;
+
+  try {
+    const result = command.type === 'observe'
+      ? await observeGuiAgentBrowser()
+      : await executeGuiAgentAction(command.action || {});
+    await requestJson('/api/gui-agent/command-result', {
+      commandId: command.id,
+      sessionId: command.sessionId,
+      captureId: command.captureId,
+      ok: true,
+      type: command.type,
+      observation: command.type === 'observe' ? result : undefined,
+      result: command.type === 'act' ? result : undefined,
+      done: command.type === 'act' ? Boolean(result.done) : false
+    });
+  } catch (e) {
+    await requestJson('/api/gui-agent/command-result', {
+      commandId: command.id,
+      sessionId: command.sessionId,
+      captureId: command.captureId,
+      ok: false,
+      type: command.type,
+      error: e.message || String(e)
+    }).catch(() => {});
+  }
+}
+
+async function observeGuiAgentBrowser() {
+  if (!yuketangView || yuketangView.webContents.isDestroyed()) {
+    throw new Error('BrowserView is not available');
+  }
+
+  const screenshot = await yuketangView.webContents.capturePage()
+    .then((img) => img.toDataURL())
+    .catch(() => '');
+
+  const dom = await yuketangView.webContents.executeJavaScript(`
+    (function() {
+      function textOf(el) {
+        return String(el.innerText || el.textContent || el.getAttribute('aria-label') || el.getAttribute('title') || '')
+          .replace(/\\s+/g, ' ')
+          .trim();
+      }
+      function visible(el) {
+        if (!el) return false;
+        var rect = el.getBoundingClientRect();
+        var style = window.getComputedStyle(el);
+        return rect.width > 0 && rect.height > 0 && rect.bottom > 0 && rect.right > 0 &&
+          rect.top < window.innerHeight && rect.left < window.innerWidth &&
+          style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity || '1') > 0;
+      }
+      function editable(el) {
+        if (!el) return false;
+        var tag = el.tagName;
+        return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable || el.getAttribute('role') === 'textbox';
+      }
+      function nearbyText(el) {
+        if (!el) return '';
+        var parts = [];
+        var label = el.closest && el.closest('label');
+        if (label) parts.push(textOf(label));
+        var parent = el.parentElement;
+        for (var i = 0; parent && i < 2; i++, parent = parent.parentElement) {
+          parts.push(textOf(parent).slice(0, 160));
+        }
+        return Array.from(new Set(parts.filter(Boolean))).join(' | ').slice(0, 240);
+      }
+      var selector = [
+        'button', '[role="button"]', 'a', 'label',
+        'input', 'textarea', '[contenteditable="true"]', '[role="textbox"]',
+        '[role="radio"]', '[role="checkbox"]',
+        '[class*="option"]', '[class*="Option"]',
+        '.option-item', '.tm-option', '.answer-option', '.question-option'
+      ].join(',');
+      var elements = Array.from(document.querySelectorAll(selector))
+        .filter(visible)
+        .slice(0, 120)
+        .map(function(el, index) {
+          var id = el.getAttribute('data-gui-agent-id') || ('ga-' + index);
+          el.setAttribute('data-gui-agent-id', id);
+          var rect = el.getBoundingClientRect();
+          var ariaLabel = el.getAttribute('aria-label') || '';
+          return {
+            id: id,
+            tag: el.tagName.toLowerCase(),
+            role: el.getAttribute('role') || '',
+            type: el.getAttribute('type') || '',
+            text: textOf(el),
+            value: el.value || '',
+            placeholder: el.getAttribute('placeholder') || '',
+            name: el.getAttribute('name') || '',
+            ariaLabel: ariaLabel,
+            className: String(el.className || '').slice(0, 160),
+            nearbyText: nearbyText(el),
+            editable: editable(el),
+            checked: Boolean(el.checked || el.getAttribute('aria-checked') === 'true'),
+            rect: {
+              x: Math.round(rect.x),
+              y: Math.round(rect.y),
+              width: Math.round(rect.width),
+              height: Math.round(rect.height)
+            },
+            rectCenter: {
+              x: Math.round(rect.x + rect.width / 2),
+              y: Math.round(rect.y + rect.height / 2)
+            }
+          };
+        });
+      return {
+        url: location.href,
+        title: document.title,
+        viewport: { width: window.innerWidth, height: window.innerHeight },
+        pageText: textOf(document.body).slice(0, 6000),
+        elements: elements
+      };
+    })()
+  `);
+
+  return { ...dom, screenshot };
+}
+
+async function executeGuiAgentAction(action) {
+  if (!yuketangView || yuketangView.webContents.isDestroyed()) {
+    throw new Error('BrowserView is not available');
+  }
+
+  const safeAction = JSON.stringify(action || {});
+  return yuketangView.webContents.executeJavaScript(`
+    (async function(action) {
+      function visible(el) {
+        if (!el) return false;
+        var rect = el.getBoundingClientRect();
+        var style = window.getComputedStyle(el);
+        return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+      }
+      function norm(value) {
+        return String(value || '').replace(/\\s+/g, '').trim().toLowerCase();
+      }
+      function textOf(el) {
+        return String(el.innerText || el.textContent || el.getAttribute('aria-label') || el.getAttribute('title') || '')
+          .replace(/\\s+/g, ' ')
+          .trim();
+      }
+      function hashText(text) {
+        var hash = 0;
+        text = String(text || '');
+        for (var i = 0; i < text.length; i++) {
+          hash = ((hash << 5) - hash + text.charCodeAt(i)) | 0;
+        }
+        return String(hash);
+      }
+      function isEditable(el) {
+        if (!el) return false;
+        return el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el.isContentEditable || el.getAttribute('role') === 'textbox';
+      }
+      function snapshotLite() {
+        var bodyText = textOf(document.body).slice(0, 8000);
+        var editables = Array.from(document.querySelectorAll('input, textarea, [contenteditable="true"], [role="textbox"]')).filter(visible);
+        var buttons = Array.from(document.querySelectorAll('button, [role="button"], a, label'))
+          .filter(visible)
+          .map(function(el) { return textOf(el).slice(0, 60); })
+          .filter(Boolean)
+          .slice(0, 30);
+        var active = document.activeElement;
+        return {
+          url: location.href,
+          title: document.title,
+          activeElement: active ? {
+            tag: active.tagName ? active.tagName.toLowerCase() : '',
+            text: textOf(active).slice(0, 80),
+            value: active.value || '',
+            editable: isEditable(active)
+          } : null,
+          pageTextHash: hashText(bodyText),
+          editableCount: editables.length,
+          buttonTexts: buttons
+        };
+      }
+      function didChange(before, after) {
+        if (!before || !after) return true;
+        return before.url !== after.url ||
+          before.title !== after.title ||
+          before.pageTextHash !== after.pageTextHash ||
+          before.editableCount !== after.editableCount ||
+          JSON.stringify(before.buttonTexts || []) !== JSON.stringify(after.buttonTexts || []) ||
+          JSON.stringify(before.activeElement || {}) !== JSON.stringify(after.activeElement || {});
+      }
+      function findTarget(target) {
+        target = target || {};
+        if (target.id) {
+          var escapedId = String(target.id).replace(/"/g, '\\\\"');
+          var byId = document.querySelector('[data-gui-agent-id="' + escapedId + '"]');
+          if (byId) return byId;
+        }
+        if (target.selector) {
+          try {
+            var bySelector = document.querySelector(target.selector);
+            if (bySelector) return bySelector;
+          } catch (_) {}
+        }
+        if (target.text) {
+          var wanted = norm(target.text);
+          var candidates = Array.from(document.querySelectorAll('button, [role="button"], a, label, input, textarea, [contenteditable="true"], [role="textbox"], [class*="option"], [class*="Option"]'))
+            .filter(visible);
+          var byText = candidates.find(function(el) {
+            return norm(textOf(el)).includes(wanted) || norm(el.value).includes(wanted);
+          });
+          if (byText) return byText;
+        }
+        if (Number.isFinite(Number(target.x)) && Number.isFinite(Number(target.y))) {
+          return document.elementFromPoint(Number(target.x), Number(target.y));
+        }
+        return null;
+      }
+      function findNearbyEditable(x, y) {
+        if (!Number.isFinite(Number(x)) || !Number.isFinite(Number(y))) return null;
+        var px = Number(x);
+        var py = Number(y);
+        var candidates = Array.from(document.querySelectorAll('input, textarea, [contenteditable="true"], [role="textbox"]'))
+          .filter(visible)
+          .map(function(el) {
+            var rect = el.getBoundingClientRect();
+            var cx = rect.x + rect.width / 2;
+            var cy = rect.y + rect.height / 2;
+            var dx = Math.max(rect.left - px, 0, px - rect.right);
+            var dy = Math.max(rect.top - py, 0, py - rect.bottom);
+            var edgeDistance = Math.sqrt(dx * dx + dy * dy);
+            var centerDistance = Math.sqrt(Math.pow(cx - px, 2) + Math.pow(cy - py, 2));
+            return { el: el, edgeDistance: edgeDistance, centerDistance: centerDistance };
+          })
+          .sort(function(a, b) {
+            return a.edgeDistance - b.edgeDistance || a.centerDistance - b.centerDistance;
+          });
+
+        var within80 = candidates.find(function(item) { return item.edgeDistance <= 80; });
+        if (within80) return within80.el;
+        var within160 = candidates.find(function(item) { return item.edgeDistance <= 160; });
+        return within160 ? within160.el : null;
+      }
+      function resolveEditableTarget(el) {
+        if (!el) return null;
+        if (isEditable(el)) return el;
+
+        var inner = el.querySelector && el.querySelector('input, textarea, [contenteditable="true"], [role="textbox"]');
+        if (inner && visible(inner)) return inner;
+
+        var parent = el.closest && el.closest('label, [class*="input"], [class*="answer"], [class*="blank"], [class*="editor"], [class*="field"], [role="textbox"]');
+        if (parent) {
+          var nearby = parent.querySelector('input, textarea, [contenteditable="true"], [role="textbox"]');
+          if (nearby && visible(nearby)) return nearby;
+        }
+
+        try {
+          el.click();
+        } catch (_) {}
+        var active = document.activeElement;
+        if (isEditable(active)) return active;
+
+        return null;
+      }
+      function fireInput(el, value) {
+        if (el.isContentEditable) {
+          el.focus();
+          el.textContent = value;
+        } else if (el instanceof HTMLTextAreaElement) {
+          var textAreaDesc = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value');
+          if (textAreaDesc && textAreaDesc.set) textAreaDesc.set.call(el, value);
+          else el.value = value;
+          el.focus();
+        } else if (el instanceof HTMLInputElement) {
+          var desc = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
+          if (desc && desc.set) desc.set.call(el, value);
+          else el.value = value;
+          el.focus();
+        } else {
+          throw new Error('Type target is not editable');
+        }
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+
+      if (action.done || action.action === 'finish') {
+        return { done: true, action: 'finish' };
+      }
+      if (action.action === 'wait') {
+        var waitBefore = snapshotLite();
+        await new Promise(function(resolve) { setTimeout(resolve, 800); });
+        var waitAfter = snapshotLite();
+        return { done: false, action: 'wait', before: waitBefore, after: waitAfter, changed: didChange(waitBefore, waitAfter) };
+      }
+
+      var el = findTarget(action.target || {});
+      if (!el) throw new Error('Target not found for action: ' + JSON.stringify(action));
+
+      if (action.action === 'click') {
+        var clickBefore = snapshotLite();
+        var rect = el.getBoundingClientRect();
+        el.scrollIntoView({ block: 'center', inline: 'center' });
+        el.click();
+        await new Promise(function(resolve) { setTimeout(resolve, 500); });
+        var clickAfter = snapshotLite();
+        return {
+          done: false,
+          action: 'click',
+          clickedAt: new Date().toISOString(),
+          targetText: textOf(el),
+          targetId: el.getAttribute('data-gui-agent-id') || '',
+          targetTag: el.tagName ? el.tagName.toLowerCase() : '',
+          targetRect: {
+            x: Math.round(rect.x),
+            y: Math.round(rect.y),
+            width: Math.round(rect.width),
+            height: Math.round(rect.height)
+          },
+          before: clickBefore,
+          after: clickAfter,
+          changed: didChange(clickBefore, clickAfter)
+        };
+      }
+
+      if (action.action === 'type') {
+        var typeBefore = snapshotLite();
+        el.scrollIntoView({ block: 'center', inline: 'center' });
+        var editableEl = resolveEditableTarget(el);
+        if (!editableEl && action.target) {
+          editableEl = findNearbyEditable(action.target.x, action.target.y);
+        }
+        if (!editableEl) throw new Error('Type target is not editable');
+        editableEl.scrollIntoView({ block: 'center', inline: 'center' });
+        fireInput(editableEl, String(action.value || ''));
+        await new Promise(function(resolve) { setTimeout(resolve, 300); });
+        var typeAfter = snapshotLite();
+        return {
+          done: false,
+          action: 'type',
+          targetText: textOf(editableEl),
+          targetId: editableEl.getAttribute('data-gui-agent-id') || el.getAttribute('data-gui-agent-id') || '',
+          valueWritten: String(action.value || ''),
+          before: typeBefore,
+          after: typeAfter,
+          changed: didChange(typeBefore, typeAfter)
+        };
+      }
+
+      throw new Error('Unsupported GUI action: ' + action.action);
+    })(${safeAction})
+  `);
+}
+
+async function executeGuiAgentCommand(command) {
+  if (!yuketangView || yuketangView.webContents.isDestroyed()) {
+    throw new Error('BrowserView is not available');
+  }
+
+  const safeCommand = JSON.stringify({
+    answerType: command.answerType,
+    answers: Array.isArray(command.answers) ? command.answers : []
+  });
+
+  return yuketangView.webContents.executeJavaScript(`
+    (function(command) {
+      function norm(value) {
+        return String(value || '').replace(/\\s+/g, '').toUpperCase();
+      }
+      function visible(el) {
+        if (!el) return false;
+        var rect = el.getBoundingClientRect();
+        var style = window.getComputedStyle(el);
+        return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+      }
+      function fireInput(el, value) {
+        var proto = el.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+        var desc = Object.getOwnPropertyDescriptor(proto, 'value');
+        if (desc && desc.set) desc.set.call(el, value);
+        else el.value = value;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      function clickSubmit() {
+        var candidates = Array.from(document.querySelectorAll('button, [role="button"], .submit-btn, [class*="submit"], [class*="Submit"]'))
+          .filter(visible);
+        var btn = candidates.find(function(el) {
+          var text = (el.innerText || el.textContent || '').trim();
+          var cls = el.className || '';
+          return /提交|确定|完成|交卷|submit|finish|done/i.test(text + ' ' + cls);
+        });
+        if (btn) btn.click();
+        return !!btn;
+      }
+
+      var answers = Array.isArray(command.answers) ? command.answers.map(String).filter(Boolean) : [];
+      if (!answers.length) throw new Error('No answers to submit');
+
+      if (command.answerType === 'choice') {
+        var optionSelectors = [
+          '.option-item', '.tm-option', '.answer-option', '.question-option',
+          '[class*="option"]', '[class*="Option"]', 'label', '[role="radio"]', '[role="checkbox"]'
+        ];
+        var options = Array.from(document.querySelectorAll(optionSelectors.join(','))).filter(visible);
+        var clicked = [];
+        answers.forEach(function(answer) {
+          var target = options.find(function(option) {
+            var text = option.innerText || option.textContent || '';
+            var keyText = '';
+            var keyEl = option.querySelector('.option-key, .key, [class*="key"], [class*="Key"]');
+            if (keyEl) keyText = keyEl.innerText || keyEl.textContent || '';
+            var n = norm(text);
+            var k = norm(keyText);
+            var a = norm(answer);
+            return k === a || n === a || n.indexOf(a + '.') === 0 || n.indexOf(a + '、') === 0 || n.indexOf(a) === 0;
+          });
+          if (target) {
+            target.click();
+            clicked.push(answer);
+          }
+        });
+        setTimeout(clickSubmit, 300);
+        return { clicked: clicked, submitted: true };
+      }
+
+      if (command.answerType === 'fill') {
+        var inputs = Array.from(document.querySelectorAll(
+          'input:not([type]), input[type="text"], input[type="search"], textarea, [contenteditable="true"]'
+        )).filter(visible);
+        var used = 0;
+        answers.forEach(function(answer, index) {
+          var el = inputs[index];
+          if (!el) return;
+          if (el.isContentEditable) {
+            el.textContent = answer;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+          } else {
+            fireInput(el, answer);
+          }
+          used += 1;
+        });
+        setTimeout(clickSubmit, 300);
+        return { filled: used, submitted: true };
+      }
+
+      if (command.answerType === 'subjective') {
+        var text = answers[0] || '';
+        var fields = Array.from(document.querySelectorAll(
+          'textarea, [contenteditable="true"], input:not([type]), input[type="text"]'
+        )).filter(visible);
+        var field = fields.find(function(el) { return el.tagName === 'TEXTAREA' || el.isContentEditable; }) || fields[0];
+        if (!field) throw new Error('No subjective answer field found');
+        if (field.isContentEditable) {
+          field.textContent = text;
+          field.dispatchEvent(new Event('input', { bubbles: true }));
+          field.dispatchEvent(new Event('change', { bubbles: true }));
+        } else {
+          fireInput(field, text);
+        }
+        setTimeout(clickSubmit, 300);
+        return { filled: 1, submitted: true };
+      }
+
+      throw new Error('Unsupported answer type: ' + command.answerType);
+    })(${safeCommand})
+  `);
+}
+
 // ── App lifecycle ──
 
 app.whenReady().then(async () => {
   await startServer();
   createWindow();
   createTray();
+  startGuiAgentPolling();
   globalShortcut.register('CommandOrControl+Shift+S', () => {
     if (mainWindow) mainWindow.webContents.send('screenshot-slide');
   });
@@ -477,6 +982,7 @@ process.on('exit', () => {
 
 app.on('before-quit', () => {
   app.isQuitting = true;
+  if (guiAgentPollTimer) { clearInterval(guiAgentPollTimer); guiAgentPollTimer = null; }
   stopYuketangView();
   if (serverProcess && !serverProcess.killed) serverProcess.kill();
 });

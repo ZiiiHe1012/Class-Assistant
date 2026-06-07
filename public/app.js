@@ -433,12 +433,12 @@
   }
 
   // ── Analysis panel ──
-  var lastRenderedAnalysis = { id: null, status: null, dt: null };
+  var lastRenderedAnalysis = { id: null, status: null, dt: null, gui: null, guiResp: null, guiErr: null };
 
   function renderAnalysis(capture) {
     if (!capture || capture.status === 'captured') {
       if (state._analyzeInProgress) return;
-      lastRenderedAnalysis = { id: null, status: null, dt: null };
+      lastRenderedAnalysis = { id: null, status: null, dt: null, gui: null, guiResp: null, guiErr: null };
       els.analysisBody.innerHTML = '<div class="panel-welcome"><p>' +
         (state.appMode === 'offline' ? '上传文件后点击「解析」' : '点击「解析此页」分析当前课件') +
         '</p></div>';
@@ -448,11 +448,29 @@
     state._analyzeInProgress = false;
 
     var dtStatus = capture.deepThinkStatus || '';
-    if (capture.status === 'done' && lastRenderedAnalysis.id === capture.id && lastRenderedAnalysis.status === 'done' && lastRenderedAnalysis.dt === dtStatus) {
+    var guiStatus = capture.guiAgentStatus || '';
+    var guiResp = capture.guiAgentResponse || '';
+    var guiErr = capture.guiAgentError || '';
+    if (
+      capture.status === 'done' &&
+      lastRenderedAnalysis.id === capture.id &&
+      lastRenderedAnalysis.status === 'done' &&
+      lastRenderedAnalysis.dt === dtStatus &&
+      lastRenderedAnalysis.gui === guiStatus &&
+      lastRenderedAnalysis.guiResp === guiResp &&
+      lastRenderedAnalysis.guiErr === guiErr
+    ) {
       return;
     }
 
-    lastRenderedAnalysis = { id: capture.id, status: capture.status, dt: dtStatus };
+    lastRenderedAnalysis = {
+      id: capture.id,
+      status: capture.status,
+      dt: dtStatus,
+      gui: guiStatus,
+      guiResp: guiResp,
+      guiErr: guiErr
+    };
 
     if (capture.status === 'analyzing') {
       var attempt = capture.attemptCount || 1;
@@ -516,6 +534,10 @@
       case 3: html += buildFill(capture); break;
       case 4: html += buildSubjective(capture); break;
       default: html += '<div class="prose">' + parseMd(capture.renderedMarkdown || '') + '</div>';
+    }
+
+    if ([2, 3, 4].indexOf(capture.categoryId) !== -1) {
+      html += buildGuiAgentPanel(capture);
     }
 
     if (capture.deepThinkStatus === 'thinking') {
@@ -677,6 +699,44 @@
     }
 
     h += kpTags(p.knowledgePoints);
+    return h;
+  }
+
+  function buildGuiAgentPanel(c) {
+    var status = c.guiAgentStatus || '';
+    var statusMap = {
+      running: '执行中',
+      done: '已完成',
+      error: '失败',
+      skipped: '已跳过'
+    };
+    var colorMap = {
+      running: 'amber',
+      done: 'green',
+      error: 'red',
+      skipped: 'blue'
+    };
+
+    var h = '<div class="card"><h4>GUI Agent</h4>';
+    h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">' +
+      '<span class="tag ' + (colorMap[status] || 'blue') + '">' + esc(statusMap[status] || '未触发') + '</span>' +
+      (c.guiAgentTriggeredAt ? '<span class="hint">' + esc(new Date(c.guiAgentTriggeredAt).toLocaleString('zh-CN')) + '</span>' : '') +
+      '</div>';
+
+    if (c.guiAgentError) {
+      h += '<div class="explain-box"><h5>错误信息</h5><div class="prose">' + esc(c.guiAgentError) + '</div></div>';
+    }
+
+    if (c.guiAgentResponse) {
+      h += '<div class="explain-box"><h5>返回结果</h5><div class="prose">' + parseMd(c.guiAgentResponse) + '</div></div>';
+    }
+
+    if (c.guiAgentRequest) {
+      h += '<details style="margin-top:8px"><summary style="cursor:pointer;font-size:11px;color:var(--text-3);font-weight:600">查看发送的 Computer Use 请求</summary>' +
+        '<pre style="margin-top:8px;white-space:pre-wrap;word-break:break-word">' + esc(c.guiAgentRequest) + '</pre></details>';
+    }
+
+    h += '</div>';
     return h;
   }
 
@@ -1355,6 +1415,9 @@
         if (kfEl) kfEl.placeholder = d.maskedKeyFast ? ('当前: ' + d.maskedKeyFast) : '留空与主密钥相同';
         var tkEl = $('#cfg-translate-key');
         if (tkEl) tkEl.placeholder = d.maskedTranslateKey ? ('当前: ' + d.maskedTranslateKey) : 'sk-...（留空使用主密钥）';
+        var gaEnabled = $('#cfg-gui-agent-enabled'); if (gaEnabled) gaEnabled.checked = !!d.guiAgentEnabled;
+        var gaModel = $('#cfg-gui-agent-model'); if (gaModel) gaModel.value = d.guiAgentModel || '';
+        var gaPrompt = $('#cfg-gui-agent-prompt'); if (gaPrompt) gaPrompt.value = d.guiAgentPromptTemplate || '';
       })
       .catch(function() {});
 
@@ -1383,7 +1446,7 @@
   }
 
   function renderModelSuggestions(models) {
-    var containers = ['cfg-model', 'cfg-model-fast', 'cfg-model-deep', 'cfg-translate-model'];
+    var containers = ['cfg-model', 'cfg-model-fast', 'cfg-model-deep', 'cfg-translate-model', 'cfg-gui-agent-model'];
     containers.forEach(function(inputId) {
       var input = $('#' + inputId);
       if (!input) return;
@@ -2207,7 +2270,7 @@
       analyzeBtn.style.opacity = '0.5';
       setTimeout(function() { analyzeBtn.style.pointerEvents = ''; analyzeBtn.style.opacity = ''; }, 4000);
 
-      lastRenderedAnalysis = { id: null, status: null, dt: null };
+      lastRenderedAnalysis = { id: null, status: null, dt: null, gui: null, guiResp: null, guiErr: null };
       state._analyzeInProgress = true;
 
       // Show loading immediately in the analysis panel
@@ -2680,7 +2743,10 @@
         baseUrl: $('#cfg-url').value,
         apiKey: $('#cfg-key').value,
         apiKeyFast: $('#cfg-key-fast') ? $('#cfg-key-fast').value : '',
-        model: $('#cfg-model').value
+        model: $('#cfg-model').value,
+        guiAgentEnabled: $('#cfg-gui-agent-enabled') ? $('#cfg-gui-agent-enabled').checked : false,
+        guiAgentModel: $('#cfg-gui-agent-model') ? $('#cfg-gui-agent-model').value : '',
+        guiAgentPromptTemplate: $('#cfg-gui-agent-prompt') ? $('#cfg-gui-agent-prompt').value : ''
       };
       var mf = $('#cfg-model-fast');
       var md = $('#cfg-model-deep');

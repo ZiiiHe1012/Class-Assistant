@@ -24,10 +24,7 @@ function resolveFromRoot(targetPath) {
 
 function getBooleanEnv(name, fallback) {
   const raw = process.env[name];
-  if (raw === undefined) {
-    return fallback;
-  }
-
+  if (raw === undefined) return fallback;
   return !['0', 'false', 'False', 'FALSE', 'no', 'No', 'NO'].includes(raw);
 }
 
@@ -35,6 +32,30 @@ function getNumberEnv(name, fallback) {
   const raw = Number(process.env[name]);
   return Number.isFinite(raw) ? raw : fallback;
 }
+
+function decodeMultilineEnv(value) {
+  return typeof value === 'string' ? value.replace(/\\n/g, '\n').replace(/\\r/g, '\r') : '';
+}
+
+const DEFAULT_GUI_AGENT_PROMPT = [
+  'You are controlling the classroom page through an observe/act GUI loop.',
+  'Use the solved question below as the source of truth. Do not solve again unless the answer is missing.',
+  'Pick one next UI action based on the current screenshot and DOM summary.',
+  '',
+  'Question type: {{categoryName}}',
+  'Answer type: {{answerType}}',
+  'Question stem: {{questionStem}}',
+  'Choice answers: {{answers}}',
+  'Blank answers: {{blankAnswers}}',
+  'Subjective answer: {{sampleAnswer}}',
+  'Fallback answers: {{fallbackAnswers}}',
+  'Explanation: {{explanation}}',
+  'Knowledge points: {{knowledgePoints}}',
+  'OCR text: {{ocrText}}',
+  'Rendered analysis: {{renderedMarkdown}}',
+  '',
+  'For choice questions, click the matching option. For fill questions, type answers into blanks in order. For subjective questions, type the complete answer. Then submit.'
+].join('\n');
 
 export const config = Object.freeze({
   rootDir,
@@ -49,6 +70,9 @@ export const config = Object.freeze({
   openaiModel: process.env.OPENAI_MODEL || 'gpt-5.4-mini',
   openaiModelFast: process.env.OPENAI_MODEL_FAST || process.env.OPENAI_MODEL || 'gpt-5.4-mini',
   openaiModelDeep: process.env.OPENAI_MODEL_DEEP || process.env.OPENAI_MODEL || 'gpt-5.4',
+  guiAgentEnabled: getBooleanEnv('GUI_AGENT_ENABLED', false),
+  guiAgentModel: process.env.GUI_AGENT_MODEL || process.env.OPENAI_MODEL_FAST || process.env.OPENAI_MODEL || 'gpt-5.4-mini',
+  guiAgentPromptTemplate: decodeMultilineEnv(process.env.GUI_AGENT_PROMPT_TEMPLATE) || DEFAULT_GUI_AGENT_PROMPT,
   translateApiKey: process.env.TRANSLATE_API_KEY || '',
   translateBaseUrl: process.env.TRANSLATE_BASE_URL || '',
   translateModel: process.env.TRANSLATE_MODEL || '',

@@ -231,7 +231,7 @@ export class MonitorService {
 
         await this.primaryPage.evaluate(() => {
           const submitBtn = document.querySelector(
-            'button[class*="submit"], .submit-btn, [class*="Submit"], button:has-text("提交")'
+            'button[class*="submit"], .submit-btn, [class*="Submit"]'
           );
           if (submitBtn) submitBtn.click();
         });
