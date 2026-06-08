@@ -1279,9 +1279,32 @@
         flex: 1; overflow-y: auto;
         padding: 14px 16px;
       }
+      .notes-ai-resizer {
+        flex-shrink: 0;
+        height: 14px;
+        cursor: row-resize;
+        position: relative;
+        background: linear-gradient(180deg, transparent 0%, rgba(135, 95, 255, 0.08) 100%);
+      }
+      .notes-ai-resizer::before {
+        content: '';
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 44px;
+        height: 4px;
+        transform: translate(-50%, -50%);
+        border-radius: 999px;
+        background: rgba(135, 95, 255, 0.32);
+        box-shadow: 0 0 0 1px rgba(135, 95, 255, 0.08);
+      }
+      .notes-ai-resizer:hover::before {
+        background: rgba(135, 95, 255, 0.56);
+      }
       .notes-ai-block {
         flex-shrink: 0;
-        max-height: 220px; overflow-y: auto;
+        min-height: 120px;
+        overflow-y: auto;
         border-top: 2px solid var(--purple-soft);
         background: var(--purple-soft);
       }
@@ -1637,6 +1660,8 @@
                 <textarea class="notes-editor" id="notes-editor" placeholder="在这里记录笔记，支持 Markdown..."></textarea>
                 <div class="notes-preview prose" id="notes-preview" style="display:none"></div>
               </div>
+
+              <div class="notes-ai-resizer" id="notes-ai-resizer" style="display:none" title="拖动调整 AI 笔记高度"></div>
 
               <div class="notes-ai-block" id="notes-ai-block" style="display:none">
                 <div class="notes-ai-header">

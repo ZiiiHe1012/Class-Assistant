@@ -34,11 +34,12 @@ function getErrorMessage(error) {
 }
 
 export class CapturePipeline {
-  constructor(config, state, modelService, guiAgentService = null) {
+  constructor(config, state, modelService, guiAgentService = null, ragService = null) {
     this.config = config;
     this.state = state;
     this.modelService = modelService;
     this.guiAgentService = guiAgentService;
+    this.ragService = ragService;
     this.queue = [];
     this.processing = false;
     this.seenHashes = new Map();
@@ -279,7 +280,17 @@ export class CapturePipeline {
             imageUrl = `data:${mime};base64,${fileBuffer.toString('base64')}`;
           } catch (_) { /* fall back to URL */ }
         }
-        const result = await this.modelService.analyzeImage({ imageUrl, mode: task.mode || this.analyzeMode });
+        const ragMarkdown = this.ragService
+          ? await this.ragService.buildContext({
+              captureId: task.id,
+              purpose: task.mode === 'deep' ? 'deep slide analysis' : 'slide analysis'
+            })
+          : '';
+        const result = await this.modelService.analyzeImage({
+          imageUrl,
+          mode: task.mode || this.analyzeMode,
+          ragMarkdown
+        });
 
         if (result.categoryId === 5) {
           await fs.rm(task.filePath, { force: true }).catch(() => {});

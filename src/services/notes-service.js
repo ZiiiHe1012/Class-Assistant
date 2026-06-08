@@ -64,8 +64,14 @@ export class NotesService {
     }
   }
 
-  async generateNotesStream(hash, imageUrl, analysisMarkdown, onChunk) {
-    return this.modelService.generateNotes({ imageUrl, analysisMarkdown, onChunk });
+  async generateNotesStream(hash, imageUrl, analysisMarkdown, noteMarkdown, ragMarkdown, onChunk) {
+    return this.modelService.generateNotes({
+      imageUrl,
+      analysisMarkdown,
+      noteMarkdown,
+      ragMarkdown,
+      onChunk
+    });
   }
 
   async getAll() {

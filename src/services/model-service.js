@@ -9,88 +9,69 @@ const CATEGORY_NAMES = {
 };
 
 const SYSTEM_PROMPT = [
-  '你是课堂解析助手。收到课堂图片后分类并输出结构化 JSON。',
-  '分类：1 课件内容，2 选择题，3 填空题，4 主观题，5 非课程内容。',
-  '只返回 JSON 对象，禁止 Markdown 代码块。',
+  '你是课堂课件分析助手。收到课件图片后，请先识别类型，再输出结构化 JSON。',
+  '分类规则：1 课件内容，2 选择题，3 填空题，4 主观题，5 非课程内容。',
+  '只返回 JSON 对象，不要返回 Markdown 代码块。',
   '',
   '顶层字段：{"categoryId":1,"categoryName":"课件内容","confidence":0.9,"reason":"","title":"","ocrText":"","renderedMarkdown":"","payload":{}}',
   '',
-  '规则：',
-  '- 不要使用 emoji 或网络用语',
-  '- 语言正式、简洁、学术化',
-  '- ocrText：原样提取图片中所有可见文字（保留原始语言、换行和顺序，不翻译不总结）',
-  '- 课件内容：提炼要点，给出理解辅助而非复述原文',
-  '- renderedMarkdown 使用简洁的 Markdown，用二级标题分节',
-  '- 数学公式必须使用 LaTeX 表示：行内公式用 $...$ 包裹，独立公式用 $$...$$ 包裹',
-  '- 准确识别并还原图片中的数学符号、公式、矩阵、方程组等',
+  '要求：',
+  '- 语言正式、简洁，不使用 emoji。',
+  '- ocrText 需要尽量保留图片中原始文字顺序，不翻译，不总结。',
+  '- renderedMarkdown 需要给出易读的结构化说明。',
+  '- 数学公式必须使用 LaTeX：行内 $...$，独立公式 $$...$$。',
+  '- 如果检索上下文与当前图片冲突，以当前图片为准。',
   '',
-  'payload 格式：',
-  'A. 课件(1)：{ summary(一句话总结), keyPoints(要点数组), tips(学习建议数组) }',
-  'B. 选择题(2)：{ questionStem, options([{key,text,isAnswer}]), answers([]), explanation, knowledgePoints }',
-  'C. 填空题(3)：{ questionStem, blanks([{index,answer}]), explanation, knowledgePoints }',
-  'D. 主观题(4)：{ questionStem, sampleAnswer, keyPoints([]), explanation, knowledgePoints }',
-  'E. 非课程(5)：所有字段置空'
+  'payload 模式：',
+  'A. 课件内容：{ summary, keyPoints[], tips[] }',
+  'B. 选择题：{ questionStem, options[{key,text,isAnswer}], answers[], explanation, knowledgePoints[] }',
+  'C. 填空题：{ questionStem, blanks[{index,prompt,answer}], explanation, knowledgePoints[] }',
+  'D. 主观题：{ questionStem, sampleAnswer, keyPoints[], explanation, knowledgePoints[] }',
+  'E. 非课程内容：payload 置空'
 ].join('\n');
 
 const SYSTEM_PROMPT_DEEP = [
-  '你是课堂深度解析助手。收到课堂图片后分类并输出结构化 JSON。',
-  '分类：1 课件内容，2 选择题，3 填空题，4 主观题，5 非课程内容。',
-  '只返回 JSON 对象，禁止 Markdown 代码块。',
+  '你是课堂深度分析助手。请结合当前课件图片与检索上下文，输出结构化 JSON。',
+  '分类规则与普通分析一致：1 课件内容，2 选择题，3 填空题，4 主观题，5 非课程内容。',
+  '只返回 JSON 对象，不要返回 Markdown 代码块。',
   '',
-  '顶层字段：{"categoryId":1,"categoryName":"课件内容","confidence":0.9,"reason":"","title":"","ocrText":"","renderedMarkdown":"","payload":{}}',
-  '',
-  '规则：',
-  '- 不要使用 emoji 或网络用语',
-  '- 语言正式、学术化，但内容要详尽深入',
-  '- ocrText：原样提取图片中所有可见文字（保留原始语言、换行和顺序，不翻译不总结）',
-  '- 课件内容：深入剖析每个知识点，给出详细解释、背景知识、与其他知识点的关联，而非简单提炼',
-  '- renderedMarkdown 使用详细的 Markdown，用二级标题分节，每节内容要充实完整',
-  '- 数学公式必须使用 LaTeX 表示：行内公式用 $...$ 包裹，独立公式用 $$...$$ 包裹',
-  '- 准确识别并还原图片中的数学符号、公式、矩阵、方程组等',
-  '- 对于每个要点，给出详细的解释说明，包括原理、推导过程、应用场景',
-  '',
-  'payload 格式：',
-  'A. 课件(1)：{ summary(一句话总结), keyPoints(详细要点数组，每个要点包含充分的解释), tips(详细学习建议数组，包含具体方法和资源推荐) }',
-  'B. 选择题(2)：{ questionStem, options([{key,text,isAnswer}]), answers([]), explanation(详细逐步解题过程，包含每个选项的分析和排除理由), knowledgePoints(涉及的所有知识点，附带简要说明) }',
-  'C. 填空题(3)：{ questionStem, blanks([{index,answer}]), explanation(详细解题思路和推导过程), knowledgePoints(涉及的所有知识点，附带简要说明) }',
-  'D. 主观题(4)：{ questionStem, sampleAnswer(完整详细的参考答案), keyPoints(详细的得分要点数组), explanation(详细解题思路、方法论和常见错误提醒), knowledgePoints(涉及的所有知识点，附带简要说明) }',
-  'E. 非课程(5)：所有字段置空'
+  '要求：',
+  '- 内容比快速分析更深入，强调原理、关联知识、易错点。',
+  '- 如果上下文不一致，以当前图片为准，并在 reason 中说明。',
+  '- renderedMarkdown 要更完整、更适合学习复盘。',
+  '- 数学公式必须使用 LaTeX：行内 $...$，独立公式 $$...$$。'
 ].join('\n');
 
 const DEEP_THINK_PROMPT = [
-  '你是学科专家。对以下课堂内容做深度分析。',
-  '要求：正式学术语言，无 emoji，结构清晰。',
-  '数学公式使用 LaTeX：行内 $...$ ，独立 $$...$$。',
-  '输出 Markdown，包含：',
-  '## 核心概念剖析',
+  '你是学科助教，请对当前课件做深度讲解。',
+  '输出 Markdown，语言正式，不使用 emoji。',
+  '如果提供了检索上下文，请把它当作辅助资料，而不是替代当前课件。',
+  '建议包含：',
+  '## 核心概念',
   '## 推导与原理',
   '## 关联知识',
-  '## 典型考题',
+  '## 典型考点',
   '## 常见误区'
 ].join('\n');
 
 const CHAT_SYSTEM_PROMPT = [
-  '你是课堂助教。用简洁准确的语言回答学生问题。',
-  '不使用 emoji 和网络用语。必要时用公式或代码辅助说明。',
-  '数学公式使用 LaTeX：行内 $...$ ，独立 $$...$$。',
-  '回答使用 Markdown 格式。'
+  '你是课堂助教，请基于当前课件和检索到的相关上下文回答问题。',
+  '优先引用当前课件证据，再使用检索上下文补充。',
+  '语言准确、简洁，使用 Markdown。',
+  '如有数学公式，用 LaTeX：行内 $...$，独立公式 $$...$$。'
 ].join('\n');
 
 const NOTES_SYSTEM_PROMPT = [
-  '你是专业的课堂学习笔记整理助手。根据课件内容，生成一份结构清晰的学习笔记。',
-  '不使用 emoji。数学公式使用 LaTeX：行内 $...$ ，独立 $$...$$。',
-  '输出 Markdown，包含：',
+  '你是课堂学习笔记整理助手。',
+  '请基于当前课件、已有笔记、检索上下文生成结构清晰、适合复习的 Markdown 笔记。',
+  '不要使用 emoji。',
+  '尽量避免和已有笔记重复；若已有笔记缺结构，优先补全结构。',
+  '建议包含：',
   '## 核心概念',
-  '（列出2-4个最重要的核心概念，每条一行，简洁说明）',
   '## 重要知识点',
-  '（关键知识点，用简短的要点形式）',
   '## 记忆技巧',
-  '（帮助记忆的口诀、联想或对比）',
-  '## 可能考点',
-  '（最可能出现在考试中的内容）',
-  '语言简洁，每条不超过两行，突出重点。'
+  '## 可能考点'
 ].join('\n');
-
 
 class RetryableAnalysisError extends Error {
   constructor(message) {
@@ -107,90 +88,112 @@ function extractJson(text) {
   const start = candidate.indexOf('{');
   const end = candidate.lastIndexOf('}');
   if (start === -1 || end === -1 || end < start) {
-    throw new RetryableAnalysisError('模型返回中没有找到合法 JSON。');
+    throw new RetryableAnalysisError('模型返回中没有找到有效 JSON。');
   }
+
   let jsonStr = candidate.slice(start, end + 1);
   try {
     return JSON.parse(jsonStr);
-  } catch (e1) {
-    // Fix trailing commas before } or ]
-    let fixed = jsonStr.replace(/,\s*([}\]])/g, '$1');
-    // Fix double closing braces like ",}}" → "}}"
-    fixed = fixed.replace(/,\s*}/g, '}');
+  } catch {
+    jsonStr = jsonStr.replace(/,\s*([}\]])/g, '$1');
     try {
-      return JSON.parse(fixed);
-    } catch (e2) {
-      // Try fixing unescaped newlines in string values
-      try {
-        const fixed2 = fixed.replace(/(?<=:\s*")([\s\S]*?)(?="(?:\s*[,}\]]))/g, (match) => {
-          return match.replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');
-        });
-        return JSON.parse(fixed2);
-      } catch (e3) {
-        try {
-          return (new Function('return ' + fixed))();
-        } catch (e4) {
-          console.error('[extractJson] Failed to parse. First 500 chars:', jsonStr.slice(0, 500));
-          throw new RetryableAnalysisError('模型返回的 JSON 无法解析。');
-        }
-      }
+      return JSON.parse(jsonStr);
+    } catch (error) {
+      console.error('[extractJson] parse failed:', jsonStr.slice(0, 500));
+      throw new RetryableAnalysisError(`模型返回 JSON 无法解析：${error.message}`);
     }
   }
 }
 
-function asString(v) { return typeof v === 'string' ? v.trim() : ''; }
-function asNumber(v, f = 0) { const n = Number(v); return Number.isFinite(n) ? n : f; }
-function asStringArray(v) { return Array.isArray(v) ? v.map(i => asString(i)).filter(Boolean) : []; }
+function asString(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function asNumber(value, fallback = 0) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+}
+
+function asStringArray(value) {
+  return Array.isArray(value) ? value.map((item) => asString(item)).filter(Boolean) : [];
+}
 
 function normalizeOptions(value) {
   if (!Array.isArray(value)) return [];
-  return value.map((item, i) => {
-    if (typeof item === 'string') return { key: String.fromCharCode(65+i), text: item.trim(), isAnswer: false };
+  return value.map((item, index) => {
+    if (typeof item === 'string') {
+      return {
+        key: String.fromCharCode(65 + index),
+        text: item.trim(),
+        isAnswer: false
+      };
+    }
     if (!item || typeof item !== 'object') return null;
-    return { key: asString(item.key) || String.fromCharCode(65+i), text: asString(item.text), isAnswer: Boolean(item.isAnswer) };
-  }).filter(item => item && item.text);
+    return {
+      key: asString(item.key) || String.fromCharCode(65 + index),
+      text: asString(item.text),
+      isAnswer: Boolean(item.isAnswer)
+    };
+  }).filter((item) => item && item.text);
 }
 
 function normalizeBlanks(value) {
   if (!Array.isArray(value)) return [];
-  return value.map((item, i) => {
-    if (typeof item === 'string') return { index: i+1, prompt: '', answer: item.trim() };
+  return value.map((item, index) => {
+    if (typeof item === 'string') {
+      return { index: index + 1, prompt: '', answer: item.trim() };
+    }
     if (!item || typeof item !== 'object') return null;
-    return { index: asNumber(item.index, i+1), prompt: asString(item.prompt), answer: asString(item.answer) };
-  }).filter(item => item && item.answer);
+    return {
+      index: asNumber(item.index, index + 1),
+      prompt: asString(item.prompt),
+      answer: asString(item.answer)
+    };
+  }).filter((item) => item && item.answer);
 }
 
 function normalizePayload(categoryId, rawPayload) {
-  const p = rawPayload && typeof rawPayload === 'object' ? rawPayload : {};
-  const answers = asStringArray(p.answers);
-  const knowledgePoints = asStringArray(p.knowledgePoints);
-  const options = normalizeOptions(p.options).map(o => ({
-    ...o, isAnswer: o.isAnswer || answers.includes(o.key) || answers.includes(o.text)
+  const payload = rawPayload && typeof rawPayload === 'object' ? rawPayload : {};
+  const answers = asStringArray(payload.answers);
+  const options = normalizeOptions(payload.options).map((option) => ({
+    ...option,
+    isAnswer: option.isAnswer || answers.includes(option.key) || answers.includes(option.text)
   }));
 
   return {
-    summary: asString(p.summary),
-    keyPoints: asStringArray(p.keyPoints || p.coreConcepts),
-    tips: asStringArray(p.tips || p.examTips),
-    questionStem: asString(p.questionStem),
+    summary: asString(payload.summary),
+    keyPoints: asStringArray(payload.keyPoints || payload.coreConcepts),
+    tips: asStringArray(payload.tips || payload.examTips),
+    questionStem: asString(payload.questionStem),
     options,
-    blanks: normalizeBlanks(p.blanks),
+    blanks: normalizeBlanks(payload.blanks),
     answers,
-    knowledgePoints,
-    explanation: asString(p.explanation),
-    sampleAnswer: asString(p.sampleAnswer),
-    keyPointsAnswer: asStringArray(p.keyPoints),
-    difficulty: asNumber(p.difficulty, 3),
+    knowledgePoints: asStringArray(payload.knowledgePoints),
+    explanation: asString(payload.explanation),
+    sampleAnswer: asString(payload.sampleAnswer),
+    keyPointsAnswer: asStringArray(payload.keyPoints),
+    difficulty: asNumber(payload.difficulty, 3),
     rawCategory: categoryId
   };
 }
-
 
 function wrapModelError(error) {
   const message = error?.message || String(error);
   const retryable = error?.retryable ||
     /service_unavailable|timeout|timed out|temporar|overloaded|429|500|502|503|504|reset/i.test(message);
   return retryable ? new RetryableAnalysisError(`模型暂时不可用：${message}`) : new Error(message);
+}
+
+function appendSystemSections(base, sections) {
+  return [base, ...sections.filter(Boolean)].join('\n\n');
+}
+
+function ensureVisionContent(userParts, imageUrl) {
+  const content = [...userParts];
+  if (imageUrl) {
+    content.push({ type: 'image_url', image_url: imageUrl });
+  }
+  return content.length ? content : [{ type: 'text', text: '请根据当前内容进行分析。' }];
 }
 
 export class ModelService {
@@ -221,9 +224,9 @@ export class ModelService {
   }
 
   _clientForModel(modelId) {
-    const ep = this._modelEndpointMap.get(modelId);
-    if (!ep) return null;
-    return new OpenAI({ apiKey: ep.key, baseURL: ep.url || undefined });
+    const endpoint = this._modelEndpointMap.get(modelId);
+    if (!endpoint) return null;
+    return new OpenAI({ apiKey: endpoint.key, baseURL: endpoint.url || undefined });
   }
 
   getModel(mode = 'fast') {
@@ -234,11 +237,9 @@ export class ModelService {
   }
 
   getClient(mode = 'fast') {
-    // Always try to find the right client for the actual model being used
     const model = this.getModel(mode);
     const mapped = this._clientForModel(model);
     if (mapped) return mapped;
-    // Fallback to configured clients
     if (mode === 'deep') return this.client;
     if (mode === 'translate') return this.clientTranslate;
     if (mode === 'chat') return this.clientFast || this.client;
@@ -256,8 +257,8 @@ export class ModelService {
 
   _getEndpoint(mode) {
     const model = this.getModel(mode);
-    const ep = this._modelEndpointMap.get(model);
-    if (ep) return { key: ep.key, url: ep.url };
+    const endpoint = this._modelEndpointMap.get(model);
+    if (endpoint) return { key: endpoint.key, url: endpoint.url };
     if (mode === 'translate' && this.config.translateApiKey && this.config.translateBaseUrl) {
       return { key: this.config.translateApiKey, url: this.config.translateBaseUrl };
     }
@@ -275,28 +276,32 @@ export class ModelService {
   }
 
   async _rawStreamingVision({ model, messages, temperature = 0.1, max_tokens = 4096, mode = 'fast', onChunk }) {
-    const ep = this._getEndpoint(mode);
-    if (!ep.key) throw new Error('未配置 API Key');
+    const endpoint = this._getEndpoint(mode);
+    if (!endpoint.key) throw new Error('未配置 API Key');
 
-    const baseUrl = (ep.url || 'https://api.openai.com/v1').replace(/\/$/, '');
-
-    const resp = await fetch(`${baseUrl}/chat/completions`, {
+    const baseUrl = (endpoint.url || 'https://api.openai.com/v1').replace(/\/$/, '');
+    const response = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${ep.key}`
+        Authorization: `Bearer ${endpoint.key}`
       },
-      body: JSON.stringify({ model, stream: true, temperature, max_tokens, messages })
+      body: JSON.stringify({
+        model,
+        stream: true,
+        temperature,
+        max_tokens,
+        messages
+      })
     });
 
-    if (!resp.ok) {
-      const errBody = await resp.text().catch(() => '');
-      const errMsg = errBody.slice(0, 300);
-      throw new Error(`${resp.status} ${errMsg}`);
+    if (!response.ok) {
+      const errBody = await response.text().catch(() => '');
+      throw new Error(`${response.status} ${errBody.slice(0, 300)}`);
     }
 
     let acc = '';
-    const reader = resp.body.getReader();
+    const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
 
@@ -307,7 +312,6 @@ export class ModelService {
 
       const lines = buffer.split('\n');
       buffer = lines.pop() || '';
-
       for (const line of lines) {
         const trimmed = line.trim();
         if (!trimmed || !trimmed.startsWith('data: ')) continue;
@@ -316,7 +320,10 @@ export class ModelService {
         try {
           const parsed = JSON.parse(data);
           const delta = parsed.choices?.[0]?.delta?.content;
-          if (delta) { acc += delta; if (onChunk) onChunk(delta); }
+          if (delta) {
+            acc += delta;
+            if (onChunk) onChunk(delta);
+          }
         } catch {}
       }
     }
@@ -324,33 +331,42 @@ export class ModelService {
     return acc;
   }
 
-  _buildVisionMessages(systemPrompt, imageUrl, userText) {
+  _buildVisionMessages(systemPrompt, imageUrl, userParts = []) {
     return [
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: [
-        { type: 'image_url', image_url: imageUrl },
-        { type: 'text', text: userText }
-      ]}
+      { role: 'user', content: ensureVisionContent(userParts, imageUrl) }
     ];
   }
 
-  async analyzeImage({ imageUrl, mode = 'fast' }) {
+  async analyzeImage({ imageUrl, mode = 'fast', ragMarkdown = '' }) {
     if (!imageUrl) throw new Error('无效图片');
 
     const isDeep = mode === 'deep';
-    const systemPrompt = (isDeep ? SYSTEM_PROMPT_DEEP : SYSTEM_PROMPT) + '\n\n严格只返回 JSON 对象，不要任何其他文字。';
-    const userText = isDeep ? '深入解析这张课堂图片，给出详尽分析，返回 JSON。' : '解析这张课堂图片，返回 JSON。';
+    const systemPrompt = appendSystemSections(
+      isDeep ? SYSTEM_PROMPT_DEEP : SYSTEM_PROMPT,
+      [
+        '严格只返回 JSON 对象，不要输出额外文字。',
+        ragMarkdown ? '已附带检索上下文，请将其作为辅助证据使用。' : ''
+      ]
+    );
+
+    const userParts = [
+      { type: 'text', text: isDeep ? '请对这张课堂课件图片做深入分析，并返回 JSON。' : '请分析这张课堂课件图片，并返回 JSON。' },
+      ...(ragMarkdown ? [{ type: 'text', text: ragMarkdown }] : [])
+    ];
 
     let text;
     try {
       text = await this._rawStreamingVision({
         model: this.getModel(mode),
-        messages: this._buildVisionMessages(systemPrompt, imageUrl, userText),
+        messages: this._buildVisionMessages(systemPrompt, imageUrl, userParts),
         temperature: 0.1,
         max_tokens: isDeep ? 8192 : 4096,
         mode
       });
-    } catch (error) { throw wrapModelError(error); }
+    } catch (error) {
+      throw wrapModelError(error);
+    }
 
     if (!text) throw new RetryableAnalysisError('模型没有返回内容');
 
@@ -358,8 +374,6 @@ export class ModelService {
     const categoryId = asNumber(parsed.categoryId, 0);
     const isIgnored = categoryId === 5;
     const payload = normalizePayload(categoryId, parsed.payload);
-    const renderedMarkdown = isIgnored ? '' : asString(parsed.renderedMarkdown) || '';
-    const ocrText = isIgnored ? '' : asString(parsed.ocrText) || '';
 
     return {
       categoryId,
@@ -368,51 +382,51 @@ export class ModelService {
       reason: isIgnored ? '' : asString(parsed.reason),
       title: isIgnored ? '' : asString(parsed.title) || '分析结果',
       payload,
-      ocrText,
-      renderedMarkdown,
+      ocrText: isIgnored ? '' : asString(parsed.ocrText) || '',
+      renderedMarkdown: isIgnored ? '' : asString(parsed.renderedMarkdown) || '',
       renderedHtml: ''
     };
   }
 
-  async deepThink({ imageUrl, contextMarkdown }) {
-    const userContent = [];
-    if (contextMarkdown) userContent.push({ type: 'text', text: `基础解析：\n${contextMarkdown}\n\n请深入分析。` });
-    if (imageUrl && (/^https?:\/\//i.test(imageUrl) || /^data:/i.test(imageUrl))) {
-      userContent.push({ type: 'image_url', image_url: imageUrl });
+  async deepThink({ imageUrl, contextMarkdown, ragMarkdown = '' }) {
+    const userParts = [];
+    if (contextMarkdown) {
+      userParts.push({ type: 'text', text: `基础分析：\n${contextMarkdown}\n\n请继续做深度讲解。` });
     }
-    if (!userContent.length) userContent.push({ type: 'text', text: '请深入分析课堂内容。' });
+    if (ragMarkdown) {
+      userParts.push({ type: 'text', text: ragMarkdown });
+    }
+    if (!userParts.length) {
+      userParts.push({ type: 'text', text: '请对当前课件做深度讲解。' });
+    }
 
     const text = await this._rawStreamingVision({
       model: this.getModel('deep'),
-      messages: [
-        { role: 'system', content: DEEP_THINK_PROMPT },
-        { role: 'user', content: userContent }
-      ],
+      messages: this._buildVisionMessages(DEEP_THINK_PROMPT, imageUrl, userParts),
       temperature: 0.3,
       max_tokens: 8192,
       mode: 'deep'
     });
 
-    return text || '无法生成分析。';
+    return text || '无法生成深度分析。';
   }
 
-  async generateNotes({ imageUrl, analysisMarkdown, onChunk }) {
-    const userContent = [];
+  async generateNotes({ imageUrl, analysisMarkdown, noteMarkdown = '', ragMarkdown = '', onChunk }) {
+    const userParts = [];
     if (analysisMarkdown) {
-      userContent.push({ type: 'text', text: `课件分析内容：\n${analysisMarkdown}\n\n请根据以上内容生成学习笔记。` });
+      userParts.push({ type: 'text', text: `当前课件分析：\n${analysisMarkdown}` });
     }
-    if (imageUrl && (/^https?:\/\//i.test(imageUrl) || /^data:/i.test(imageUrl))) {
-      userContent.push({ type: 'image_url', image_url: imageUrl });
+    if (noteMarkdown) {
+      userParts.push({ type: 'text', text: `当前已有笔记：\n${noteMarkdown}` });
     }
-    if (!userContent.length) {
-      userContent.push({ type: 'text', text: '请根据课件内容生成学习笔记。' });
+    if (ragMarkdown) {
+      userParts.push({ type: 'text', text: ragMarkdown });
     }
+    userParts.push({ type: 'text', text: '请结合这些内容，生成一份结构清晰、去重后的学习笔记。' });
+
     return this._rawStreamingVision({
       model: this.getModel('fast'),
-      messages: [
-        { role: 'system', content: NOTES_SYSTEM_PROMPT },
-        { role: 'user', content: userContent }
-      ],
+      messages: this._buildVisionMessages(NOTES_SYSTEM_PROMPT, imageUrl, userParts),
       temperature: 0.3,
       max_tokens: 4096,
       mode: 'fast',
@@ -420,36 +434,40 @@ export class ModelService {
     });
   }
 
-  async chat({ messages: chatHistory, imageUrl, contextMarkdown, background }) {
+  async chat({ messages: chatHistory, imageUrl, contextMarkdown, background, ragMarkdown = '' }) {
     const client = this.getClient('chat');
     if (!client) throw new Error('未配置 API Key');
 
-    let sys = CHAT_SYSTEM_PROMPT;
-    if (contextMarkdown) sys += `\n\n课件摘要：\n${contextMarkdown}`;
-    if (background) sys += `\n\n补充信息：\n${background}`;
+    const systemPrompt = appendSystemSections(CHAT_SYSTEM_PROMPT, [
+      contextMarkdown ? `当前课件摘要：\n${contextMarkdown}` : '',
+      background ? `用户补充背景：\n${background}` : '',
+      ragMarkdown || ''
+    ]);
 
     return this._collectStream(client.chat.completions.create({
       model: this.getModel('chat'),
       temperature: 0.3,
       stream: true,
-      messages: [{ role: 'system', content: sys }, ...chatHistory]
+      messages: [{ role: 'system', content: systemPrompt }, ...chatHistory]
     })) || '无法回答。';
   }
 
-  chatStream({ messages: chatHistory, imageUrl, contextMarkdown, background, model }) {
+  chatStream({ messages: chatHistory, imageUrl, contextMarkdown, background, model, ragMarkdown = '' }) {
     if (model) this.overrideChat = model;
     const client = this.getClient('chat');
     if (!client) throw new Error('未配置 API Key');
 
-    let sys = CHAT_SYSTEM_PROMPT;
-    if (contextMarkdown) sys += `\n\n课件摘要：\n${contextMarkdown}`;
-    if (background) sys += `\n\n补充信息：\n${background}`;
+    const systemPrompt = appendSystemSections(CHAT_SYSTEM_PROMPT, [
+      contextMarkdown ? `当前课件摘要：\n${contextMarkdown}` : '',
+      background ? `用户补充背景：\n${background}` : '',
+      ragMarkdown || ''
+    ]);
 
     return client.chat.completions.create({
       model: this.getModel('chat'),
       temperature: 0.3,
       stream: true,
-      messages: [{ role: 'system', content: sys }, ...chatHistory]
+      messages: [{ role: 'system', content: systemPrompt }, ...chatHistory]
     });
   }
 
@@ -457,7 +475,7 @@ export class ModelService {
     const client = this.getClient('translate');
     if (!client) throw new Error('未配置翻译 API Key');
 
-    const langHint = sourceLang ? `源语言：${sourceLang}，` : '';
+    const langHint = sourceLang ? `源语言：${sourceLang}` : '';
     const systemPrompt = this._translateSystemPrompt(langHint, targetLang);
 
     const raw = await this._collectStream(client.chat.completions.create({
@@ -472,11 +490,9 @@ export class ModelService {
     }));
 
     const trimmed = (raw || '').trim();
-
     try {
       const cleaned = trimmed.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '').trim();
-      const parsed = JSON.parse(cleaned);
-      return JSON.stringify(parsed);
+      return JSON.stringify(JSON.parse(cleaned));
     } catch {
       return JSON.stringify({
         type: 'sentence',
@@ -491,7 +507,7 @@ export class ModelService {
     const client = this.getClient('translate');
     if (!client) throw new Error('未配置翻译 API Key');
 
-    const langHint = sourceLang ? `源语言：${sourceLang}，` : '';
+    const langHint = sourceLang ? `源语言：${sourceLang}` : '';
     const systemPrompt = this._translateSystemPrompt(langHint, targetLang);
 
     return client.chat.completions.create({
@@ -507,39 +523,31 @@ export class ModelService {
   }
 
   _translateSystemPrompt(langHint, targetLang) {
-    return `你是一个专业的词典式翻译助手。${langHint}目标语言：${targetLang}。
+    return `你是专业的词典式翻译助手。${langHint} 目标语言：${targetLang}。
 
-请先判断用户输入是单个词/短语还是完整句子，然后按对应格式返回 **纯 JSON**（不要 markdown 代码块包裹）。
+请先判断用户输入是单词/短语还是完整句子，然后按对应格式只返回 JSON：
 
-■ 如果是单个单词或短语，返回：
+单词/短语：
 {
   "type": "word",
   "original": "原文",
-  "phonetic": "音标或拼音提示（英文给音标，中文给拼音，其他语言给罗马音等）",
-  "wordType": "词性，如 n. / v. / adj. / adv. / phrase 等",
+  "phonetic": "音标或拼音",
+  "wordType": "词性",
   "meanings": [
-    { "def": "义项1的${targetLang}释义", "example": "该义项的例句（原语言）" },
-    { "def": "义项2的${targetLang}释义", "example": "该义项的例句（原语言）" }
+    { "def": "${targetLang}释义", "example": "例句" }
   ],
-  "translation": "最常用的${targetLang}翻译"
+  "translation": "${targetLang}常用翻译"
 }
 
-■ 如果是完整句子或段落，返回：
+句子/段落：
 {
   "type": "sentence",
   "original": "原文",
-  "translation": "完整的${targetLang}翻译",
+  "translation": "${targetLang}翻译",
   "vocabulary": [
-    { "word": "句中关键词1", "meaning": "该词的${targetLang}释义" },
-    { "word": "句中关键词2", "meaning": "该词的${targetLang}释义" }
+    { "word": "关键词", "meaning": "${targetLang}释义" }
   ]
-}
-
-注意：
-- meanings 数组至少包含 1 项，最多 4 项，覆盖主要义项。
-- vocabulary 挑选 2-5 个关键/难点词汇。
-- 遇到专业术语请使用目标语言中该领域的通用译法。
-- 只返回合法 JSON，不要附加任何解释文字。`;
+}`;
   }
 
   async listModels(apiKey, baseUrl) {
@@ -562,7 +570,7 @@ export class ModelService {
       endpoints.push({ key: this.config.openaiApiKey, url: this.config.openaiBaseUrl, label: this._urlLabel(this.config.openaiBaseUrl) });
     }
     if (this.config.openaiApiKeyFast && this.config.openaiApiKeyFast !== this.config.openaiApiKey) {
-      endpoints.push({ key: this.config.openaiApiKeyFast, url: this.config.openaiBaseUrl, label: this._urlLabel(this.config.openaiBaseUrl) + ' (fast)' });
+      endpoints.push({ key: this.config.openaiApiKeyFast, url: this.config.openaiBaseUrl, label: `${this._urlLabel(this.config.openaiBaseUrl)} (fast)` });
     }
     if (this.config.translateApiKey && this.config.translateBaseUrl && this.config.translateBaseUrl !== this.config.openaiBaseUrl) {
       endpoints.push({ key: this.config.translateApiKey, url: this.config.translateBaseUrl, label: this._urlLabel(this.config.translateBaseUrl) });
@@ -572,24 +580,25 @@ export class ModelService {
     const seen = new Set();
     const results = [];
 
-    const fetches = endpoints.map(async (ep) => {
-      if (!ep.key) return [];
+    const lists = await Promise.all(endpoints.map(async (endpoint) => {
+      if (!endpoint.key) return [];
       try {
-        const models = await this.listModels(ep.key, ep.url);
-        return models.map(m => ({ model: m, endpoint: ep }));
-      } catch { return []; }
-    });
+        const models = await this.listModels(endpoint.key, endpoint.url);
+        return models.map((model) => ({ model, endpoint }));
+      } catch {
+        return [];
+      }
+    }));
 
-    const allLists = await Promise.all(fetches);
-    for (const list of allLists) {
+    for (const list of lists) {
       for (const item of list) {
-        if (!seen.has(item.model)) {
-          seen.add(item.model);
-          results.push(item);
-          this._modelEndpointMap.set(item.model, item.endpoint);
-        }
+        if (seen.has(item.model)) continue;
+        seen.add(item.model);
+        results.push(item);
+        this._modelEndpointMap.set(item.model, item.endpoint);
       }
     }
+
     results.sort((a, b) => a.model.localeCompare(b.model));
     return results;
   }
@@ -598,6 +607,8 @@ export class ModelService {
     if (!url) return 'default';
     try {
       return new URL(url).hostname.replace(/^api\./, '').replace(/\.(com|vip|cn|io)$/, '');
-    } catch { return url; }
+    } catch {
+      return url;
+    }
   }
 }

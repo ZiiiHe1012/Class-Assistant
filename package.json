@@ -10,7 +10,12 @@
     "electron": "node electron/launch.js",
     "electron:dev": "node electron/launch.js",
     "build": "electron-builder",
-    "check": "node --check src/server.js"
+    "check": "node --check src/server.js && node --check public/app.js && node --check scripts/e2e/main-flow-showcase.cjs && node --check scripts/e2e/notes-ui-smoke.cjs && node --check scripts/e2e/gui-rerun-electron.cjs",
+    "smoke:main-flow": "node scripts/e2e/main-flow-showcase.cjs",
+    "smoke:notes-ui": "node scripts/e2e/notes-ui-smoke.cjs",
+    "smoke:gui-rerun": "node scripts/e2e/gui-rerun-electron.cjs",
+    "report:build": "latexmk -xelatex -interaction=nonstopmode -halt-on-error -outdir=docs/report slides.tex",
+    "report:clean": "latexmk -c -outdir=docs/report slides.tex"
   },
   "dependencies": {
     "canvas": "^3.2.3",

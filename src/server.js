@@ -14,6 +14,7 @@ import { ModelService } from './services/model-service.js';
 import { MonitorService } from './services/monitor-service.js';
 import { NotesService } from './services/notes-service.js';
 import { ocrImage } from './services/ocr-service.js';
+import { RagService } from './services/rag-service.js';
 
 
 
@@ -35,8 +36,9 @@ async function main() {
   const state = new AppState(config);
   const modelService = new ModelService(config);
   const notesService = new NotesService(notesDir, modelService);
+  const ragService = new RagService(config, state, notesService);
   const guiAgentService = new GuiAgentService(config, state);
-  const capturePipeline = new CapturePipeline(config, state, modelService, guiAgentService);
+  const capturePipeline = new CapturePipeline(config, state, modelService, guiAgentService, ragService);
   const monitorService = new MonitorService(config, state, capturePipeline);
   if (process.env.ELECTRON !== '1') {
     guiAgentService.setActionExecutor((command) => monitorService.submitAnswer(command));
@@ -128,9 +130,15 @@ async function main() {
         } catch (_) { }
       }
 
+      const ragMarkdown = await ragService.buildContext({
+        captureId,
+        purpose: 'deep thinking'
+      });
+
       const result = await modelService.deepThink({
         imageUrl,
-        contextMarkdown: capture.renderedMarkdown
+        contextMarkdown: capture.renderedMarkdown,
+        ragMarkdown
       });
       state.updateCapture(captureId, {
         deepThinkStatus: 'done',
@@ -149,11 +157,18 @@ async function main() {
     const capture = captureId ? state.findCapture(captureId) : null;
 
     try {
+      const ragMarkdown = await ragService.buildContext({
+        captureId,
+        query: `${background || ''}\n${(messages || []).map((item) => item?.content || '').join('\n')}`,
+        purpose: 'chat answer'
+      });
+
       const reply = await modelService.chat({
         messages: messages || [],
         imageUrl: capture?.url,
         contextMarkdown: capture?.renderedMarkdown,
-        background: background || ''
+        background: background || '',
+        ragMarkdown
       });
       res.json({ ok: true, reply });
     } catch (error) {
@@ -170,12 +185,19 @@ async function main() {
     res.setHeader('Connection', 'keep-alive');
 
     try {
+      const ragMarkdown = await ragService.buildContext({
+        captureId,
+        query: `${background || ''}\n${(messages || []).map((item) => item?.content || '').join('\n')}`,
+        purpose: 'chat answer'
+      });
+
       const stream = await modelService.chatStream({
         messages: messages || [],
         imageUrl: capture?.url,
         contextMarkdown: capture?.renderedMarkdown,
         background: background || '',
-        model: model || undefined
+        model: model || undefined,
+        ragMarkdown
       });
 
       for await (const chunk of stream) {
@@ -455,11 +477,18 @@ async function main() {
     }
 
     try {
+      const ragMarkdown = await ragService.buildContext({
+        captureId,
+        query: `${background || ''}\n${messages.map((item) => item?.content || '').join('\n')}\n${attachmentContext}`,
+        purpose: 'chat answer with attachment'
+      });
+
       const reply = await modelService.chat({
         messages,
         imageUrl: capture?.url,
         contextMarkdown: (capture?.renderedMarkdown || '') + attachmentContext,
-        background: background || ''
+        background: background || '',
+        ragMarkdown
       });
       res.json({ ok: true, reply });
     } catch (error) {
@@ -642,6 +671,7 @@ async function main() {
     res.setHeader('Connection', 'keep-alive');
 
     try {
+      const note = await notesService.get(hash);
       let imageUrl = null;
       if (capture?.fileName) {
         try {
@@ -653,8 +683,20 @@ async function main() {
         } catch (_) {}
       }
 
+      const ragMarkdown = await ragService.buildContext({
+        hash,
+        query: `${capture?.renderedMarkdown || ''}\n${note?.manualContent || ''}\n${note?.title || ''}`,
+        purpose: 'note generation'
+      });
+
       let fullText = '';
-      await notesService.generateNotesStream(hash, imageUrl, capture?.renderedMarkdown || '', (chunk) => {
+      await notesService.generateNotesStream(
+        hash,
+        imageUrl,
+        capture?.renderedMarkdown || '',
+        note?.manualContent || '',
+        ragMarkdown,
+        (chunk) => {
         res.write(`data: ${JSON.stringify({ t: chunk })}\n\n`);
         fullText += chunk;
       });

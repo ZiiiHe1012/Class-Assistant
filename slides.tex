@@ -1,234 +1,200 @@
 \documentclass[aspectratio=169]{beamer}
-\usepackage{ctex}
-\usepackage{graphicx}
+\usepackage[UTF8]{ctex}
 \usepackage{booktabs}
-\usepackage{tikz}
+\usepackage{array}
+\usepackage{hyperref}
 
 \usetheme{Madrid}
-\usecolortheme{seahorse}
+\usecolortheme{default}
+\definecolor{brandgreen}{RGB}{29,191,115}
+\definecolor{brandlight}{RGB}{244,246,243}
+\setbeamercolor{palette primary}{bg=brandgreen,fg=white}
+\setbeamercolor{palette secondary}{bg=brandgreen!80!black,fg=white}
+\setbeamercolor{structure}{fg=brandgreen}
+\setbeamercolor{block title}{bg=brandgreen!12,fg=black}
+\setbeamercolor{block body}{bg=brandlight,fg=black}
 \setbeamertemplate{navigation symbols}{}
-\setbeamertemplate{footline}{}
 
-\title{智慧课堂助手}
-\subtitle{软件工程探索与实践}
-\author{颜宇翔 \quad 魏天翼 \quad 蒋天源}
-\institute{小组项目汇报}
-\date{2026年5月26日}
+\title{智慧课堂 Class Assistant}
+\subtitle{软件工程探索与实践（2）课程项目汇报}
+\author{颜宇翔 \and 魏天翼 \and 蒋天源}
+\institute{在线课堂辅助学习桌面应用}
+\date{2026年6月}
 
 \begin{document}
 
-% ---- 封面 ----
 \begin{frame}
   \titlepage
 \end{frame}
 
-% ---- 选题介绍 ----
-\begin{frame}{选题介绍}
-  \begin{block}{项目背景}
-    \begin{itemize}
-      \item 在线课堂（雨课堂等）中，学生需要快速理解课件内容
-      \item 传统方式：手动截图、记笔记，效率低且容易遗漏
-      \item 需求：实时捕获课件、AI 辅助分析、划词翻译、笔记管理
-    \end{itemize}
+\begin{frame}{项目背景}
+  \begin{block}{使用场景}
+    在线课堂里，学生往往需要同时处理课件阅读、课堂记录、重点理解、课后复习和课堂题目等任务。现有做法通常依赖浏览器、笔记工具和聊天工具来回切换，信息容易分散，上下文也很难连续保留。
   \end{block}
 
   \begin{block}{项目目标}
-    \begin{itemize}
-      \item 自动捕获课堂课件图片（在线/离线模式）
-      \item AI 智能解析：分类、要点提炼、题目解答、深度思考
-      \item OCR 精确文字层 + 划词翻译/解释
-      \item 笔记系统：AI 辅助记录、管理与导出
-    \end{itemize}
+    我们希望做一个围绕真实课堂流程的桌面助手，把课件捕获、内容解析、笔记整理、AI 对话和课堂题目辅助整合在同一个应用里，让它既能服务上课过程，也能服务课后复盘。
   \end{block}
 \end{frame}
 
-% ---- 技术方案：总体架构 ----
-\begin{frame}{技术方案 —— 总体架构}
+\begin{frame}{整体方案}
   \begin{columns}[T]
     \begin{column}{0.48\textwidth}
-      \begin{block}{前端（Electron 桌面端）}
+      \begin{block}{桌面端}
         \begin{itemize}
-          \item Electron + BrowserView 内嵌雨课堂
-          \item PDF.js 渲染离线 PDF 文档
-          \item KaTeX + marked.js 渲染公式与 Markdown
-          \item OCR 文字层覆盖，支持划词选择
+          \item 使用 Electron 搭建统一桌面界面
+          \item 通过 BrowserView 承载雨课堂页面
+          \item 在同一窗口中组织课件、解析、笔记与对话
+        \end{itemize}
+      \end{block}
+
+      \begin{block}{服务端}
+        \begin{itemize}
+          \item 基于 Node.js 与 Express 提供本地服务
+          \item 通过 SSE 支持解析、对话、笔记的流式输出
+          \item 本地维护捕获记录、课堂状态和笔记数据
         \end{itemize}
       \end{block}
     \end{column}
     \begin{column}{0.48\textwidth}
-      \begin{block}{后端（Node.js 服务）}
+      \begin{block}{核心流程}
         \begin{itemize}
-          \item Express RESTful API + SSE 实时推送
-          \item OpenAI 兼容接口（多模型路由）
-          \item Tesseract.js OCR（中英双语 WASM）
-          \item SHA-1 图像哈希去重与笔记持久化
+          \item 捕获课堂中的课件内容
+          \item 对课件进行去重、OCR 和结构化解析
+          \item 结合上下文完成问答、总结与笔记生成
+          \item 在真实题目页面上执行课堂答题辅助
+        \end{itemize}
+      \end{block}
+
+      \begin{block}{设计思路}
+        \begin{itemize}
+          \item 尽量贴近真实课堂使用环境
+          \item 各模块共享课堂上下文，而不是各自独立工作
+          \item 保留继续扩展更多课堂能力的接口
         \end{itemize}
       \end{block}
     \end{column}
   \end{columns}
-
-  \vspace{0.4cm}
-  \begin{block}{整体流程}
-    课件捕获 $\rightarrow$ 哈希去重/尺寸过滤 $\rightarrow$ AI 视觉分析 $\rightarrow$ OCR 文字层 $\rightarrow$ 笔记记录与管理
-  \end{block}
 \end{frame}
 
-% ---- 技术方案：在线课件捕获与去重 ----
-\begin{frame}{技术方案 —— 课件捕获与去重}
-  \begin{block}{Chrome DevTools Protocol (CDP) 捕获}
-    \begin{itemize}
-      \item 附加 CDP 调试器，监听 \texttt{Network.responseReceived} 筛选图片响应
-      \item \texttt{loadingFinished} 时调用 \texttt{getResponseBody} 获取完整图片
-      \item 每 2.5 秒扫描 DOM 中大面积 \texttt{<img>} 作为兜底补充
-    \end{itemize}
+\begin{frame}{课件捕获与解析}
+  \begin{block}{课件接入方式}
+    应用将雨课堂页面直接嵌入桌面端，用户不需要频繁在浏览器和本地工具之间切换。这样一方面便于保留完整的课堂上下文，另一方面也让后续捕获、解析和交互都能在同一流程中完成。
   \end{block}
 
-  \begin{block}{三级去重与过滤}
-    \begin{enumerate}
-      \item \textbf{URL 去重}：\texttt{interceptedUrls: Set}（LRU 淘汰）
-      \item \textbf{SHA-1 内容哈希}：\texttt{seenHashes: Map} 记录已见图片
-      \item \textbf{连续帧防抖}：\texttt{lastSubmittedHash} 过滤视频流重复帧
-    \end{enumerate}
-    过滤过小尺寸及宽高比异常（$>6$ 或 $<0.3$）的 UI 元素图片
-  \end{block}
-\end{frame}
-
-% ---- 技术方案：AI 智能分析 ----
-\begin{frame}{技术方案 —— AI 智能分析}
-  \begin{block}{多模态视觉分析}
+  \begin{block}{处理链路}
     \begin{itemize}
-      \item 图片以 \texttt{data:image/...;base64,...} 格式通过 \texttt{image\_url} 字段发送
-      \item System Prompt 要求输出结构化 JSON（分类、要点、解答）
-      \item 五分类体系：课件 / 选择题 / 填空题 / 主观题 / 非课程内容
-    \end{itemize}
-  \end{block}
-
-  \begin{block}{多模型策略与深度思考}
-    \begin{itemize}
-      \item 快速模型：实时解析、翻译；深度模型：二次深度分析
-      \item 深度思考结构化输出：核心概念 / 推导原理 / 典型考题 / 常见误区
-      \item 多端点路由：支持 OpenAI / DeepSeek / GLM 等兼容接口
-      \item 流式 SSE 逐块推送，前端 KaTeX + marked.js 实时渲染
+      \item 监听页面中的课件图像与可见内容
+      \item 对捕获结果进行尺寸过滤与去重
+      \item 结合 OCR 提取文字信息，增强后续理解能力
+      \item 调用模型生成结构化解析结果，包括课件分类、知识点与题目答案说明
     \end{itemize}
   \end{block}
 \end{frame}
 
-% ---- 技术方案：OCR 与划词翻译 ----
-\begin{frame}{技术方案 —— OCR 与划词翻译}
-  \begin{block}{Tesseract.js OCR 引擎}
-    \begin{itemize}
-      \item WASM 离线识别，加载 \texttt{chi\_sim+eng} 双语言模型
-      \item TSV 结构化输出：解析 level=5（词级）获取每词坐标与文本
-      \item 单例 Worker 复用 + 本地模型文件缓存，避免重复下载
-    \end{itemize}
+\begin{frame}{统一上下文与 RAG}
+  \begin{block}{为什么要做统一上下文}
+    课堂学习不是对单页课件的孤立理解，而是一个连续过程。只看当前页面，模型很容易遗漏前后关系；如果能结合邻近课件、历史解析结果和已有笔记，输出就会更接近真实学习需要。
   \end{block}
 
-  \begin{block}{划词翻译/解释}
-    \begin{itemize}
-      \item 三种触发模式：弹出工具栏 / 直接翻译 / 关闭
-      \item 词典式结构化翻译：单词返回音标+词性+例句，句子返回整体翻译+关键词汇
-      \item SSE 流式实时展示，弹窗支持拖拽定位与 Pin 固定
-    \end{itemize}
+  \begin{block}{实现方式}
+    我们将当前课件、相邻课件、历史分析结果和笔记内容组织成统一上下文，再作为检索增强信息提供给多个能力模块。这样，分析、深度思考、AI 对话和 AI 笔记生成都能共享同一套课堂记忆。
   \end{block}
-\end{frame}
 
-% ---- 技术方案：笔记系统 ----
-\begin{frame}{技术方案 —— 笔记系统}
-  \begin{block}{核心功能}
+  \begin{block}{带来的效果}
     \begin{itemize}
-      \item 每张课件可记录 Markdown 手写笔记 + AI 生成笔记，支持自定义标签
-      \item AI 生成：截图 + 解析上下文同时送入视觉模型，流式输出至面板
-      \item 全局笔记管理器：关键词搜索、编辑、删除、大图对照预览
-      \item 一键导出全部笔记为结构化 Markdown 文档
-    \end{itemize}
-  \end{block}
-  \begin{block}{技术实现}
-    \begin{itemize}
-      \item 以图片 SHA-1 哈希为键，每张课件对应独立 JSON 文件，重启不丢失
-      \item 独立 \texttt{NotesService} 模块，API 路由支持 CRUD + SSE 流式写入
-      \item 前端 Markdown 实时预览（marked.js），笔记面板嵌入分析 Tab Bar
+      \item 输出不再只依赖当前一页内容
+      \item 更适合连续追问、知识串联和复习总结
+      \item 降低不同模块之间信息割裂的问题
     \end{itemize}
   \end{block}
 \end{frame}
 
-% ---- 技术方案：离线 PDF 模式 ----
-\begin{frame}{技术方案 —— 离线 PDF 模式}
-  \begin{block}{PDF.js 客户端渲染}
+\begin{frame}{笔记系统设计}
+  \small
+  \begin{block}{笔记组织方式}
     \begin{itemize}
-      \item PDF.js 解析 PDF，\texttt{page.render()} 渲染到 Canvas
-      \item 支持 \texttt{devicePixelRatio} 高清缩放
-      \item \texttt{IntersectionObserver} 懒加载，仅渲染视口附近页面
+      \item 每张课件对应一份独立笔记
+      \item 手动笔记与 AI 笔记分区展示
+      \item 支持导入解析结果、导出整理内容与后续复习使用
     \end{itemize}
   \end{block}
 
-  \begin{block}{透明文本层}
+  \begin{block}{本次实现重点}
     \begin{itemize}
-      \item \texttt{page.getTextContent()} 获取文字内容及 transform 矩阵
-      \item 绝对定位透明 \texttt{<span>} 叠加在 Canvas 上方
-      \item 支持原生文本选中，触发划词翻译
+      \item 调整笔记预览逻辑，使预览与当前课件状态保持一致
+      \item 优化 AI 笔记生成区域的交互方式，支持拖拽调整显示空间
+      \item 将统一上下文接入笔记生成过程，使输出更贴合当前课堂内容
     \end{itemize}
   \end{block}
 \end{frame}
 
-% ---- 功能演示 ----
-\begin{frame}{功能演示（一）}
-  \begin{center}
-    \includegraphics[width=0.85\textwidth]{demo1.png}
-  \end{center}
+\begin{frame}{GUI Agent 自动答题}
+  \begin{block}{设计目标}
+    这一部分服务的是课堂中的真实题目页面。系统先根据课件和题目内容生成结构化答案，再由 GUI Agent 在页面中识别元素并执行对应操作，从而完成选择、填空或主观题输入。
+  \end{block}
+
+  \begin{block}{工作流程}
+    \begin{itemize}
+      \item 课件捕获模块识别题目页面
+      \item 解析结果中生成可提交的答案与说明
+      \item GUI Agent 读取页面状态并选择操作对象
+      \item 最终动作仍然执行在真实课堂页面中
+    \end{itemize}
+  \end{block}
+
+  \begin{block}{系统意义}
+    这部分说明应用不是离线分析器，而是一个能参与真实课堂交互流程的学习辅助工具。
+  \end{block}
 \end{frame}
 
-\begin{frame}{功能演示（二）}
-  \begin{center}
-    \includegraphics[width=0.85\textwidth]{demo2.png}
-  \end{center}
+\begin{frame}{其他模块}
+  \begin{block}{OCR}
+    OCR 用于补充图像课件中的文字信息。当页面中存在较多图片文字、题干文本或局部说明时，OCR 能为后续解析和问答提供更完整的输入基础。
+  \end{block}
+
+  \begin{block}{前端交互}
+    前端围绕课堂场景做了统一组织，将课件区域、分析结果、笔记系统和对话面板放在同一界面中，降低切换成本，也方便用户围绕当前课件连续操作。
+  \end{block}
+
+  \begin{block}{程序打包}
+    项目最终以桌面应用形式交付，便于直接在本地课堂环境中运行，而不是依赖额外的开发环境来启动全部功能。
+  \end{block}
 \end{frame}
 
-\begin{frame}{功能演示（三）}
-  \begin{center}
-    \includegraphics[width=0.85\textwidth]{demo3.png}
-  \end{center}
-\end{frame}
-
-% ---- 团队分工 ----
 \begin{frame}{团队分工}
-  \begin{table}[h]
+  \small
+  \begin{table}
     \centering
-    \renewcommand{\arraystretch}{1.5}
-    \begin{tabular}{ll}
+    \renewcommand{\arraystretch}{1.2}
+    \begin{tabular}{>{\raggedright\arraybackslash}p{0.16\textwidth} >{\raggedright\arraybackslash}p{0.76\textwidth}}
       \toprule
-      \textbf{成员} & \textbf{主要职责} \\
+      成员 & 主要分工 \\
       \midrule
-      颜宇翔 & 前端界面开发、交互设计、OCR 集成 \\
-      魏天翼 & 后端服务开发、AI 接口对接、流式通信、笔记服务 \\
-      蒋天源 & Electron 主进程、CDP 课件捕获、打包部署 \\
+      颜宇翔 & 主要框架与 RAG 相关工作，负责前端组织、程序打包、OCR 等除笔记系统和 GUI Agent 自动答题外的整体模块串联。 \\
+      魏天翼 & 笔记系统与相关框架设计，负责笔记组织、预览、编辑与 AI 笔记能力的实现。 \\
+      蒋天源 & GUI Agent 自动答题与相关框架设计，负责真实课堂题目页面下的识别、执行与交互链路。 \\
       \bottomrule
     \end{tabular}
   \end{table}
+\end{frame}
 
-  \vspace{0.5cm}
-  \begin{block}{协作方式}
+\begin{frame}{总结}
+  \begin{block}{项目完成情况}
+    项目已经打通了在线课堂中的课件捕获、内容解析、上下文组织、笔记生成、对话辅助和课堂题目交互等核心链路，形成了一个较完整的课堂学习辅助桌面应用。
+  \end{block}
+
+  \begin{block}{后续工作}
     \begin{itemize}
-      \item Git 版本管理，多分支协作，统一 RESTful API 接口规范
-      \item 迭代开发：核心捕获 → AI 分析 → OCR → 对话 → 笔记系统
+      \item 继续增强课堂历史内容的组织与利用能力
+      \item 提升笔记导出、复盘整理和长期学习支持
+      \item 继续扩展 GUI Agent 在更多课堂页面场景下的适配能力
     \end{itemize}
   \end{block}
-\end{frame}
 
-% ---- 后续规划 ----
-\begin{frame}{后续规划}
-  \begin{enumerate}
-    \item \textbf{集成 RAG}：引入检索增强生成，结合课件知识库提升 AI 回答准确性
-    \item \textbf{知识库可视化管理}：提供图形化界面管理课件资料、笔记与历史记录
-    \item \textbf{语音转写集成}：实时转写课堂讲解，辅助笔记与复习
-    \item \textbf{优化交互体验}：简化操作流程，提升响应速度与界面友好度
-  \end{enumerate}
-\end{frame}
-
-% ---- 结尾 ----
-\begin{frame}
-  \centering
-  \vspace{2cm}
-  {\Huge 谢谢！}
+  \begin{center}
+    \Large 谢谢老师
+  \end{center}
 \end{frame}
 
 \end{document}
