@@ -306,6 +306,24 @@ function compactObservation(observation) {
   };
 }
 
+function buildAuthHeaders(baseUrl, apiKey) {
+  const headers = {
+    'Content-Type': 'application/json'
+  };
+  if (!apiKey) return headers;
+
+  try {
+    const hostname = new URL(baseUrl || 'https://api.openai.com/v1').hostname.toLowerCase();
+    if (hostname.endsWith('.openai.azure.com') || hostname.includes('azure.com')) {
+      headers['api-key'] = apiKey;
+      return headers;
+    }
+  } catch {}
+
+  headers.Authorization = `Bearer ${apiKey}`;
+  return headers;
+}
+
 function hasEditableElement(observation) {
   return asArray(observation?.elements).some((el) => el?.editable);
 }
@@ -779,10 +797,7 @@ export class GuiAgentService {
     const baseUrl = String(settings.baseUrl || 'https://api.openai.com/v1').replace(/\/$/, '');
     const resp = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${settings.apiKey}`
-      },
+      headers: buildAuthHeaders(baseUrl, settings.apiKey),
       body: JSON.stringify(requestBody)
     });
 

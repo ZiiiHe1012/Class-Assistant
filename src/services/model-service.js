@@ -201,6 +201,24 @@ function ensureVisionContent(userParts, imageUrl) {
   return content.length ? content : [{ type: 'text', text: '请根据当前内容进行分析。' }];
 }
 
+function buildAuthHeaders(baseUrl, apiKey) {
+  const headers = {
+    'Content-Type': 'application/json'
+  };
+  if (!apiKey) return headers;
+
+  try {
+    const hostname = new URL(baseUrl || 'https://api.openai.com/v1').hostname.toLowerCase();
+    if (hostname.endsWith('.openai.azure.com') || hostname.includes('azure.com')) {
+      headers['api-key'] = apiKey;
+      return headers;
+    }
+  } catch {}
+
+  headers.Authorization = `Bearer ${apiKey}`;
+  return headers;
+}
+
 export class ModelService {
   constructor(config) {
     this.config = config;
@@ -287,10 +305,7 @@ export class ModelService {
     const baseUrl = (endpoint.url || 'https://api.openai.com/v1').replace(/\/$/, '');
     const response = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${endpoint.key}`
-      },
+      headers: buildAuthHeaders(baseUrl, endpoint.key),
       body: JSON.stringify({
         model,
         stream: true,
