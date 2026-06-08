@@ -446,7 +446,7 @@ export class GuiAgentService {
       enabled: this.enabledOverride !== null ? this.enabledOverride : Boolean(this.config.guiAgentEnabled),
       apiKey: this.getApiKey(),
       baseUrl: this.getBaseUrl(),
-      model: this.modelOverride || this.config.guiAgentModel || this.config.openaiModelFast || this.config.openaiModel || 'gpt-5.5',
+      model: this.modelOverride || this.config.guiAgentModel || this.config.openaiModelFast || this.config.openaiModel || 'openai/gpt-5.5',
       promptTemplate: this.promptTemplateOverride || this.config.guiAgentPromptTemplate || ''
     };
   }
@@ -852,7 +852,12 @@ export class GuiAgentService {
 
     const content = [];
     if (observation?.screenshot && /^data:image\//i.test(observation.screenshot)) {
-      content.push({ type: 'image_url', image_url: observation.screenshot });
+      content.push({
+        type: 'image_url',
+        image_url: {
+          url: observation.screenshot
+        }
+      });
     }
     content.push({ type: 'text', text: userText });
 
