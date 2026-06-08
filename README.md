@@ -1,4 +1,4 @@
-# 智慧课堂（Class Assistant）
+﻿# 智慧课堂（Class Assistant）
 
 > 面向在线课堂的 AI 学习助手：实时课件捕获、智能解析、RAG 增强问答、笔记系统与 Electron 桌面交互一体化。
 
@@ -132,8 +132,6 @@ npm run report:build
 | `npm run smoke:gui-rerun` | 重跑 Electron 内嵌雨课堂 + AI 生成笔记主流程 |
 | `npm run report:build` | 用 XeLaTeX 编译汇报 PDF |
 
-自动化脚本位于 `scripts/e2e/`，汇报截图素材位于 `docs/report-assets/`。
-
 ---
 
 ## 项目结构
@@ -159,9 +157,9 @@ public/
   index.html               主界面
   app.js                   前端交互逻辑
 scripts/
-  e2e/                     主流程与笔记冒烟脚本
+  e2e/                     主流程验证脚本
 docs/
-  report-assets/           汇报截图素材
+  report/                  汇报 PDF 输出目录
 slides.tex                 LaTeX 汇报稿
 ```
 
