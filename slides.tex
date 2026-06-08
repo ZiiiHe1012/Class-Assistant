@@ -1,200 +1,202 @@
-\documentclass[aspectratio=169]{beamer}
-\usepackage[UTF8]{ctex}
-\usepackage{booktabs}
-\usepackage{array}
-\usepackage{hyperref}
+\documentclass[11pt,aspectratio=169]{ctexbeamer}
 
-\usetheme{Madrid}
-\usecolortheme{default}
-\definecolor{brandgreen}{RGB}{29,191,115}
-\definecolor{brandlight}{RGB}{244,246,243}
-\setbeamercolor{palette primary}{bg=brandgreen,fg=white}
-\setbeamercolor{palette secondary}{bg=brandgreen!80!black,fg=white}
-\setbeamercolor{structure}{fg=brandgreen}
-\setbeamercolor{block title}{bg=brandgreen!12,fg=black}
-\setbeamercolor{block body}{bg=brandlight,fg=black}
+\usetheme{default}
+\usefonttheme{professionalfonts}
 \setbeamertemplate{navigation symbols}{}
 
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{ragged2e}
+\usepackage{xcolor}
+
+\setCJKmainfont[AutoFakeBold=2]{SimSun}
+\setCJKsansfont[AutoFakeBold=2]{SimSun}
+\setmainfont[AutoFakeBold=2]{SimSun}
+\setsansfont[AutoFakeBold=2]{SimSun}
+\CJKsetecglue{}
+
+\definecolor{TitleBlue}{HTML}{0A4E8A}
+\definecolor{DeepBlue}{HTML}{083B66}
+\definecolor{LineBlue}{HTML}{D6E5F3}
+\definecolor{SoftGray}{HTML}{F5F7FA}
+\definecolor{AccentRed}{HTML}{B42318}
+\definecolor{AccentGreen}{HTML}{0F766E}
+\definecolor{Muted}{HTML}{4B5563}
+
+\setbeamercolor{normal text}{fg=black,bg=white}
+\setbeamercolor{frametitle}{fg=white,bg=TitleBlue}
+\setbeamercolor{structure}{fg=DeepBlue}
+\setbeamercolor{block title}{fg=DeepBlue,bg=SoftGray}
+\setbeamercolor{block body}{fg=black,bg=white}
+\setbeamercolor{date in head/foot}{fg=DeepBlue,bg=white}
+\setbeamersize{text margin left=0.85cm,text margin right=0.85cm}
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.18}
+
+\setbeamertemplate{frametitle}{%
+  \nointerlineskip
+  \begin{beamercolorbox}[wd=\paperwidth,ht=3.25ex,dp=1.15ex,leftskip=1em]{frametitle}
+    \bfseries\insertframetitle
+  \end{beamercolorbox}}
+\setbeamertemplate{footline}{%
+  \leavevmode\hbox{%
+  \begin{beamercolorbox}[wd=\paperwidth,ht=2.35ex,dp=0.9ex,rightskip=1em plus1fil]{date in head/foot}
+    \insertframenumber/\inserttotalframenumber
+  \end{beamercolorbox}}}
+\setbeamertemplate{itemize item}{\color{DeepBlue}\raise0.2ex\hbox{\tiny$\blacksquare$}}
+
+\newcommand{\good}[1]{\textcolor{AccentGreen}{\bfseries #1}}
+\newcommand{\bad}[1]{\textcolor{AccentRed}{\bfseries #1}}
+\newcommand{\muted}[1]{\textcolor{Muted}{#1}}
+\newcolumntype{Y}{>{\RaggedRight\arraybackslash}X}
+\newcolumntype{L}[1]{>{\RaggedRight\arraybackslash}p{#1}}
+
 \title{智慧课堂 Class Assistant}
-\subtitle{软件工程探索与实践（2）课程项目汇报}
 \author{颜宇翔 \and 魏天翼 \and 蒋天源}
-\institute{在线课堂辅助学习桌面应用}
-\date{2026年6月}
+\date{2026.6}
 
 \begin{document}
 
-\begin{frame}
-  \titlepage
+\begin{frame}[plain]
+  \vspace*{2.1cm}
+  {\centering
+  {\color{DeepBlue}\bfseries\fontsize{29}{35}\selectfont 智慧课堂 Class Assistant\par}
+  \vspace{0.7cm}
+  {\color{Muted}\Large 软件工程探索与实践（2）课程项目汇报\par}
+  \vspace{1.0cm}
+  {\color{DeepBlue}\Large 小组成员：颜宇翔、魏天翼、蒋天源\par}
+  \vspace{0.3cm}
+  {\color{DeepBlue}\Large 日期：2026.6\par}
+  }
 \end{frame}
 
-\begin{frame}{项目背景}
-  \begin{block}{使用场景}
-    在线课堂里，学生往往需要同时处理课件阅读、课堂记录、重点理解、课后复习和课堂题目等任务。现有做法通常依赖浏览器、笔记工具和聊天工具来回切换，信息容易分散，上下文也很难连续保留。
-  \end{block}
-
-  \begin{block}{项目目标}
-    我们希望做一个围绕真实课堂流程的桌面助手，把课件捕获、内容解析、笔记整理、AI 对话和课堂题目辅助整合在同一个应用里，让它既能服务上课过程，也能服务课后复盘。
-  \end{block}
+\begin{frame}[t]{项目背景}
+\normalsize
+\begin{itemize}
+\item 在线课堂里，学生通常要同时处理课件阅读、重点理解、课堂记录、课后复习和课堂题目。
+\item 现有做法往往依赖浏览器、笔记工具和聊天工具来回切换，信息分散，上下文也难以连续保留。
+\item 如果只能对单页课件做孤立分析，AI 输出容易缺少前后联系，难以真正服务课堂学习流程。
+\end{itemize}
+\vspace{0.45em}
+\begin{block}{项目目标}
+围绕真实课堂流程做一个桌面助手，把课件捕获、内容解析、上下文组织、笔记生成、AI 对话和课堂题目辅助整合在同一个应用里，让它既能服务上课过程，也能支持课后复盘。
+\end{block}
 \end{frame}
 
-\begin{frame}{整体方案}
-  \begin{columns}[T]
-    \begin{column}{0.48\textwidth}
-      \begin{block}{桌面端}
-        \begin{itemize}
-          \item 使用 Electron 搭建统一桌面界面
-          \item 通过 BrowserView 承载雨课堂页面
-          \item 在同一窗口中组织课件、解析、笔记与对话
-        \end{itemize}
-      \end{block}
-
-      \begin{block}{服务端}
-        \begin{itemize}
-          \item 基于 Node.js 与 Express 提供本地服务
-          \item 通过 SSE 支持解析、对话、笔记的流式输出
-          \item 本地维护捕获记录、课堂状态和笔记数据
-        \end{itemize}
-      \end{block}
-    \end{column}
-    \begin{column}{0.48\textwidth}
-      \begin{block}{核心流程}
-        \begin{itemize}
-          \item 捕获课堂中的课件内容
-          \item 对课件进行去重、OCR 和结构化解析
-          \item 结合上下文完成问答、总结与笔记生成
-          \item 在真实题目页面上执行课堂答题辅助
-        \end{itemize}
-      \end{block}
-
-      \begin{block}{设计思路}
-        \begin{itemize}
-          \item 尽量贴近真实课堂使用环境
-          \item 各模块共享课堂上下文，而不是各自独立工作
-          \item 保留继续扩展更多课堂能力的接口
-        \end{itemize}
-      \end{block}
-    \end{column}
-  \end{columns}
+\begin{frame}[t]{整体方案}
+\small
+\begin{tabularx}{\textwidth}{L{2.0cm} L{3.2cm} Y}
+\toprule
+模块 & 主要实现 & 作用 \\
+\midrule
+桌面端 & Electron + BrowserView & 在同一窗口中承载雨课堂页面、课件区域、解析结果、笔记和对话面板。 \\
+本地服务 & Node.js + Express + SSE & 提供状态管理、接口调度和流式输出能力。 \\
+课件处理 & 捕获、去重、OCR、结构化解析 & 把页面中的真实课件内容转成可理解、可组织、可复用的信息。 \\
+统一上下文 & 当前课件 + 相邻课件 + 历史解析 + 笔记检索 & 为分析、深度思考、AI 对话和 AI 笔记提供共享语境。 \\
+课堂交互 & GUI Agent 页面执行链路 & 在真实题目页面中完成选择、填空和主观题输入。 \\
+\bottomrule
+\end{tabularx}
 \end{frame}
 
-\begin{frame}{课件捕获与解析}
-  \begin{block}{课件接入方式}
-    应用将雨课堂页面直接嵌入桌面端，用户不需要频繁在浏览器和本地工具之间切换。这样一方面便于保留完整的课堂上下文，另一方面也让后续捕获、解析和交互都能在同一流程中完成。
-  \end{block}
-
-  \begin{block}{处理链路}
-    \begin{itemize}
-      \item 监听页面中的课件图像与可见内容
-      \item 对捕获结果进行尺寸过滤与去重
-      \item 结合 OCR 提取文字信息，增强后续理解能力
-      \item 调用模型生成结构化解析结果，包括课件分类、知识点与题目答案说明
-    \end{itemize}
-  \end{block}
+\begin{frame}[t]{课件捕获与解析}
+\normalsize
+\begin{itemize}
+\item 应用将雨课堂页面直接嵌入桌面端，用户不需要频繁在浏览器和本地工具之间切换。
+\item 页面中的课件图像和可见内容会被监听并进入捕获链路，再经过尺寸过滤和去重，避免把无关元素当成课件。
+\item 对捕获结果补充 OCR 文字信息后，再交给模型生成结构化解析结果，包括课件类型、知识点和题目答案说明。
+\end{itemize}
+\vspace{0.45em}
+\begin{block}{这一部分解决的问题}
+它把“真实课堂页面”变成后续所有能力的统一输入源，后面的笔记、问答和题目辅助都建立在这条链路之上。
+\end{block}
 \end{frame}
 
-\begin{frame}{统一上下文与 RAG}
-  \begin{block}{为什么要做统一上下文}
-    课堂学习不是对单页课件的孤立理解，而是一个连续过程。只看当前页面，模型很容易遗漏前后关系；如果能结合邻近课件、历史解析结果和已有笔记，输出就会更接近真实学习需要。
-  \end{block}
-
-  \begin{block}{实现方式}
-    我们将当前课件、相邻课件、历史分析结果和笔记内容组织成统一上下文，再作为检索增强信息提供给多个能力模块。这样，分析、深度思考、AI 对话和 AI 笔记生成都能共享同一套课堂记忆。
-  \end{block}
-
-  \begin{block}{带来的效果}
-    \begin{itemize}
-      \item 输出不再只依赖当前一页内容
-      \item 更适合连续追问、知识串联和复习总结
-      \item 降低不同模块之间信息割裂的问题
-    \end{itemize}
-  \end{block}
+\begin{frame}[t]{统一上下文与 RAG}
+\small
+\begin{tabularx}{\textwidth}{L{2.05cm} Y}
+\toprule
+部分 & 作用 \\
+\midrule
+当前课件 & 保留当前页面的分析结果、OCR 内容和深度思考结果，作为最直接的理解基础。 \\
+相邻课件 & 引入前后若干张课件，补足单页分析缺少的上下文联系。 \\
+历史笔记 & 复用同一课件或近期课堂中的手写笔记、AI 笔记，减少重复生成。 \\
+统一接入 & 分析、深度思考、AI 对话、AI 笔记共用同一套上下文拼接逻辑。 \\
+\bottomrule
+\end{tabularx}
+\vspace{0.55em}
+\normalsize
+\textbf{核心思路：}课堂学习不是看一张图，而是沿着一条连续内容链理解。统一 RAG 的意义就在于让多个模块共享同一套课堂记忆，而不是各自独立工作。
 \end{frame}
 
-\begin{frame}{笔记系统设计}
-  \small
-  \begin{block}{笔记组织方式}
-    \begin{itemize}
-      \item 每张课件对应一份独立笔记
-      \item 手动笔记与 AI 笔记分区展示
-      \item 支持导入解析结果、导出整理内容与后续复习使用
-    \end{itemize}
-  \end{block}
-
-  \begin{block}{本次实现重点}
-    \begin{itemize}
-      \item 调整笔记预览逻辑，使预览与当前课件状态保持一致
-      \item 优化 AI 笔记生成区域的交互方式，支持拖拽调整显示空间
-      \item 将统一上下文接入笔记生成过程，使输出更贴合当前课堂内容
-    \end{itemize}
-  \end{block}
+\begin{frame}[t]{笔记系统设计}
+\small
+\begin{tabularx}{\textwidth}{L{2.1cm} Y}
+\toprule
+部分 & 说明 \\
+\midrule
+笔记组织 & 每张课件对应独立笔记，手动笔记与 AI 笔记分区展示。 \\
+编辑与预览 & 围绕当前课件状态组织笔记内容，使编辑、切换和预览过程保持一致。 \\
+AI 笔记 & 生成时不仅看当前课件，也会结合统一上下文，输出更贴合课堂链路的内容。 \\
+界面交互 & AI 笔记区域支持拖拽调整空间，便于在阅读课件和整理笔记之间平衡布局。 \\
+后续整理 & 支持把课堂中的分析结果沉淀为可继续复习和导出的笔记内容。 \\
+\bottomrule
+\end{tabularx}
 \end{frame}
 
-\begin{frame}{GUI Agent 自动答题}
-  \begin{block}{设计目标}
-    这一部分服务的是课堂中的真实题目页面。系统先根据课件和题目内容生成结构化答案，再由 GUI Agent 在页面中识别元素并执行对应操作，从而完成选择、填空或主观题输入。
-  \end{block}
-
-  \begin{block}{工作流程}
-    \begin{itemize}
-      \item 课件捕获模块识别题目页面
-      \item 解析结果中生成可提交的答案与说明
-      \item GUI Agent 读取页面状态并选择操作对象
-      \item 最终动作仍然执行在真实课堂页面中
-    \end{itemize}
-  \end{block}
-
-  \begin{block}{系统意义}
-    这部分说明应用不是离线分析器，而是一个能参与真实课堂交互流程的学习辅助工具。
-  \end{block}
+\begin{frame}[t]{GUI Agent 自动答题}
+\normalsize
+\begin{itemize}
+\item 这一部分服务的是课堂中的真实题目页面，而不是单独做一个离线演示页面。
+\item 系统先根据课件和题目内容生成结构化答案，再由 GUI Agent 在页面中识别元素并执行对应操作。
+\item 最终动作仍然执行在真实课堂页面里，因此它本质上是课堂交互辅助，而不只是页面外的分析工具。
+\end{itemize}
+\vspace{0.45em}
+\begin{block}{工作流程}
+课件捕获识别题目页面 $\rightarrow$ 结构化解析生成答案与说明 $\rightarrow$ GUI Agent 读取页面状态并选择操作对象 $\rightarrow$ 在真实页面中完成提交。
+\end{block}
 \end{frame}
 
-\begin{frame}{其他模块}
-  \begin{block}{OCR}
-    OCR 用于补充图像课件中的文字信息。当页面中存在较多图片文字、题干文本或局部说明时，OCR 能为后续解析和问答提供更完整的输入基础。
-  \end{block}
-
-  \begin{block}{前端交互}
-    前端围绕课堂场景做了统一组织，将课件区域、分析结果、笔记系统和对话面板放在同一界面中，降低切换成本，也方便用户围绕当前课件连续操作。
-  \end{block}
-
-  \begin{block}{程序打包}
-    项目最终以桌面应用形式交付，便于直接在本地课堂环境中运行，而不是依赖额外的开发环境来启动全部功能。
-  \end{block}
+\begin{frame}[t]{其他模块}
+\small
+\begin{tabularx}{\textwidth}{L{1.75cm} Y}
+\toprule
+模块 & 作用 \\
+\midrule
+OCR & 补充图像课件中的文字信息，为后续解析、问答和知识点整理提供更完整输入。 \\
+前端交互 & 将课件区域、分析结果、笔记系统和对话面板放在同一界面中，降低切换成本。 \\
+程序打包 & 最终以桌面应用形式交付，便于直接在本地课堂环境中运行，而不是依赖额外开发环境。 \\
+\bottomrule
+\end{tabularx}
+\vspace{0.55em}
+\normalsize
+\textbf{整体理解：}这些模块不是孤立功能，而是在同一个课堂场景里协同工作，共同支撑“捕获 - 理解 - 记录 - 交互”这条主链路。
 \end{frame}
 
-\begin{frame}{团队分工}
-  \small
-  \begin{table}
-    \centering
-    \renewcommand{\arraystretch}{1.2}
-    \begin{tabular}{>{\raggedright\arraybackslash}p{0.16\textwidth} >{\raggedright\arraybackslash}p{0.76\textwidth}}
-      \toprule
-      成员 & 主要分工 \\
-      \midrule
-      颜宇翔 & 主要框架与 RAG 相关工作，负责前端组织、程序打包、OCR 等除笔记系统和 GUI Agent 自动答题外的整体模块串联。 \\
-      魏天翼 & 笔记系统与相关框架设计，负责笔记组织、预览、编辑与 AI 笔记能力的实现。 \\
-      蒋天源 & GUI Agent 自动答题与相关框架设计，负责真实课堂题目页面下的识别、执行与交互链路。 \\
-      \bottomrule
-    \end{tabular}
-  \end{table}
+\begin{frame}[t]{团队分工}
+\small
+\begin{tabularx}{\textwidth}{L{1.8cm} Y}
+\toprule
+成员 & 主要分工 \\
+\midrule
+颜宇翔 & 主要框架与 RAG 相关工作，负责前端、程序打包、图片捕获、OCR识别等程序基础功能模块与框架。 \\
+魏天翼 & 笔记系统与相关框架设计，负责笔记组织、预览、编辑与 AI 笔记能力的实现。 \\
+蒋天源 & GUI Agent 自动答题与相关框架设计，负责真实课堂题目页面下的识别、执行与交互链路。 \\
+\bottomrule
+\end{tabularx}
 \end{frame}
 
-\begin{frame}{总结}
-  \begin{block}{项目完成情况}
-    项目已经打通了在线课堂中的课件捕获、内容解析、上下文组织、笔记生成、对话辅助和课堂题目交互等核心链路，形成了一个较完整的课堂学习辅助桌面应用。
-  \end{block}
-
-  \begin{block}{后续工作}
-    \begin{itemize}
-      \item 继续增强课堂历史内容的组织与利用能力
-      \item 提升笔记导出、复盘整理和长期学习支持
-      \item 继续扩展 GUI Agent 在更多课堂页面场景下的适配能力
-    \end{itemize}
-  \end{block}
-
-  \begin{center}
-    \Large 谢谢老师
-  \end{center}
+\begin{frame}[t]{总结}
+\normalsize
+\begin{itemize}
+\item 项目已经打通了在线课堂中的课件捕获、内容解析、上下文组织、笔记生成、对话辅助和课堂题目交互等核心链路。
+\item 统一上下文与 RAG 让分析、深度思考、AI 对话和 AI 笔记不再是分散能力，而是围绕同一课堂语境协同工作。
+\item 整个系统最终以桌面应用形式落地，更贴近真实课堂场景，也更便于后续继续扩展。
+\end{itemize}
+\vspace{0.45em}
+\begin{block}{后续工作}
+继续增强课堂历史内容的组织与利用能力，完善笔记整理与导出，并提升 GUI Agent 在更多课堂页面场景下的适配能力。
+\end{block}
 \end{frame}
 
 \end{document}
