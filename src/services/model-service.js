@@ -191,7 +191,12 @@ function appendSystemSections(base, sections) {
 function ensureVisionContent(userParts, imageUrl) {
   const content = [...userParts];
   if (imageUrl) {
-    content.push({ type: 'image_url', image_url: imageUrl });
+    content.push({
+      type: 'image_url',
+      image_url: {
+        url: imageUrl
+      }
+    });
   }
   return content.length ? content : [{ type: 'text', text: '请根据当前内容进行分析。' }];
 }
