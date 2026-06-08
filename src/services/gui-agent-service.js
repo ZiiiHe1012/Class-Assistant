@@ -446,7 +446,7 @@ export class GuiAgentService {
       enabled: this.enabledOverride !== null ? this.enabledOverride : Boolean(this.config.guiAgentEnabled),
       apiKey: this.getApiKey(),
       baseUrl: this.getBaseUrl(),
-      model: this.modelOverride || this.config.guiAgentModel || this.config.openaiModelFast || this.config.openaiModel || 'gpt-4.1-mini',
+      model: this.modelOverride || this.config.guiAgentModel || this.config.openaiModelFast || this.config.openaiModel || 'gpt-5.5',
       promptTemplate: this.promptTemplateOverride || this.config.guiAgentPromptTemplate || ''
     };
   }
